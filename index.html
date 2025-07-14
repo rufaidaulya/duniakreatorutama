@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Embed Link</title>
-    <!-- Memuat Tailwind CSS dari CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- CSS digabungkan di sini -->
     <style>
         body {
             font-family: "Inter", sans-serif;
@@ -20,7 +18,6 @@
             box-sizing: border-box;
             overflow: hidden; /* Mencegah scrollbar jika konten melebihi viewport */
         }
-
         .container {
             background-color: #ffffff;
             border-radius: 12px;
@@ -34,7 +31,6 @@
             align-items: center;
             justify-content: center; /* Memusatkan iframe di dalam container */
         }
-
         iframe {
             width: 100%; /* Iframe mengisi 100% lebar container */
             height: 100%; /* Iframe mengisi 100% tinggi container (yang 95vh) */
@@ -42,26 +38,20 @@
             border-radius: 8px;
             margin: 0; /* Menghapus semua margin dari iframe */
         }
-
-        /* Styling untuk pesan fallback dan tombol */
-        /* .fallback-container dan .fallback-container.active dihapus karena elemennya dihapus */
+        /* Media queries untuk tinggi iframe tidak lagi diperlukan karena menggunakan 'vh' */
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
     <div class="container bg-white rounded-xl shadow-lg">
         <!-- Iframe untuk menanamkan tautan -->
         <iframe
-            id="embeddedIframe"
             src="https://santridigital.net/app/duniakreator/landingpage"
             title="Dunia Kreator Landing Page"
             allowfullscreen
             class="rounded-lg shadow-md"
         >
+            <p class="text-red-500">Browser Anda tidak mendukung, Silahkan pakai Browser Chrome" target="_blank" class="text-blue-500 hover:underline">santridigital.net/app/duniakreator/landingpage</a></p>
         </iframe>
-
-        <!-- Kontainer untuk pesan fallback dan tombol telah dihapus -->
     </div>
-    <!-- Menghubungkan ke file JavaScript eksternal -->
-    <script src="script.js"></script>
 </body>
 </html>
