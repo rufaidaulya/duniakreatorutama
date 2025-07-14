@@ -14,11 +14,11 @@
         body {
             font-family: "Inter", sans-serif;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh; /* Tetap mempertahankan min-height untuk centering */
+            justify-content: center; /* Memusatkan horizontal */
+            align-items: flex-start; /* Memulai konten dari atas */
+            min-height: 100vh;
             background-color: #f0f2f5;
-            padding: 10px; /* Menambahkan padding 10px di semua sisi body */
+            padding: 0; /* Menghapus padding dari body agar iframe bisa full di samping */
             /* overflow: hidden; Dihapus untuk memungkinkan scrolling jika konten melebihi viewport */
         }
         .container {
@@ -26,21 +26,21 @@
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             padding: 0;
-            width: 100vw;
+            width: 100vw; /* Container mengambil 100% lebar viewport */
             max-width: 100vw;
-            height: calc(100vh - 20px); /* Container mengambil tinggi penuh viewport dikurangi padding body (10px atas + 10px bawah) */
+            height: 100vh; /* Container mengambil 100% tinggi viewport */
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            align-items: center; /* Memusatkan iframe secara horizontal di dalam container */
+            justify-content: flex-start; /* Memulai iframe dari atas container */
         }
         iframe {
-            width: 100%;
-            height: 100%; /* Iframe mengisi 100% tinggi container */
+            width: 100%; /* Iframe mengisi 100% lebar container */
+            height: calc(100% - 20px); /* Iframe mengisi tinggi container dikurangi 20px untuk padding bawah */
             border: 1px solid #e0e0e0;
             border-radius: 8px;
-            margin: 0;
-            /* overflow: auto; Biasanya tidak perlu eksplisit karena default browser */
+            margin: 0; /* Menghapus semua margin dari iframe */
+            /* overflow: auto; Biasanya tidak perlu eksplisit karena default browser akan menambahkannya */
         }
     </style>
 
@@ -57,7 +57,7 @@
     <meta name="twitter:description" content="Gabung & jadi bagian dari komunitas kreatif Dunia Kreator!">
     <meta name="twitter:image" content="https://rufaidaulya.github.io/duniakreatorutama/icon/duniakreatorlogo.png">
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+<body class="bg-gray-100 flex items-center justify-content: center; min-height: 100vh;">
     <div class="container bg-white rounded-xl shadow-lg">
         <!-- Iframe untuk menanamkan tautan -->
         <iframe
