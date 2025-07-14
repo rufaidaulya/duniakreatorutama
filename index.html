@@ -1,570 +1,67 @@
-
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dunia Kreator</title>
-    
-    <!-- Tailwind CSS CDN -->
+    <title>Embed Link</title>
+    <!-- Memuat Tailwind CSS dari CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
+    <!-- CSS digabungkan di sini -->
     <style>
-        /* Menggunakan font Inter sebagai default */
         body {
-            font-family: 'Inter', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        /* Efek gradien latar belakang yang lebih halus */
-        .gradient-bg {
-            background-color: #f3f4f6;
-            background-image: 
-                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 0.2) 0px, transparent 50%),
-                radial-gradient(at 98% 1%, hsla(225, 39%, 30%, 0.2) 0px, transparent 50%);
-        }
-
-        /* Animasi untuk elemen yang melayang */
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
-        }
-        .floating {
-            animation: float 4s ease-in-out infinite;
-        }
-
-        /* Animasi spinner */
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        /* Menyembunyikan scrollbar bawaan */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-        }
-        
-        /* Styling untuk iframe container */
-        .iframe-body {
+            font-family: "Inter", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
             margin: 0;
-            padding: 0;
-            overflow: hidden;
+            padding: 0; /* Menghapus padding dari body */
+            box-sizing: border-box;
+            overflow: hidden; /* Mencegah scrollbar jika konten melebihi viewport */
         }
-        .iframe-container {
-            width: 100vw;
-            height: 100vh;
+
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 0; /* Menghapus padding dari container */
+            width: 100vw; /* Container mengambil 100% lebar viewport */
+            max-width: 100vw; /* Memastikan container tidak dibatasi lebarnya */
+            height: 95vh; /* Container mengambil 95% tinggi viewport */
             display: flex;
             flex-direction: column;
+            align-items: center;
+            justify-content: center; /* Memusatkan iframe di dalam container */
         }
-        .iframe-content {
-            flex-grow: 1;
-            border: none;
+
+        iframe {
+            width: 100%; /* Iframe mengisi 100% lebar container */
+            height: 100%; /* Iframe mengisi 100% tinggi container (yang 95vh) */
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin: 0; /* Menghapus semua margin dari iframe */
         }
+
+        /* Styling untuk pesan fallback dan tombol */
+        /* .fallback-container dan .fallback-container.active dihapus karena elemennya dihapus */
     </style>
 </head>
-<body class="gradient-bg text-slate-800">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="container bg-white rounded-xl shadow-lg">
+        <!-- Iframe untuk menanamkan tautan -->
+        <iframe
+            id="embeddedIframe"
+            src="https://santridigital.net/app/duniakreator/landingpage"
+            title="Dunia Kreator Landing Page"
+            allowfullscreen
+            class="rounded-lg shadow-md"
+        >
+        </iframe>
 
-    <!-- Main App Container -->
-    <div id="mainApp" class="flex flex-col items-center justify-center min-h-screen w-full p-4 sm:p-6 lg:p-8">
-        
-        <!-- Logo -->
-        <div class="mb-6">
-            <img src="https://i.postimg.cc/7YhMT7Dc/duniakreator.png" alt="Dunia Kreator Logo" class="w-36 h-auto floating" onerror="this.onerror=null;this.src='https://placehold.co/144x50/6366f1/white?text=DK-BOT';">
-        </div>
-
-        <!-- Container Utama -->
-        <div class="w-full max-w-md transition-all duration-500">
-            
-            <!-- Halaman Login -->
-            <div id="loginSection" class="bg-white/80 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-lg w-full">
-                <div class="text-center mb-8">
-                    <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Selamat Datang</h1>
-                    <p class="text-slate-500 mt-2">Masuk untuk melanjutkan ke DK-BOT</p>
-                </div>
-
-                <form class="space-y-5">
-                    <div>
-                        <label for="loginEmail" class="text-sm font-medium text-slate-600">Email</label>
-                        <div class="relative mt-2">
-                            <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="email" id="loginEmail" placeholder="email@contoh.com" class="w-full pl-12 pr-4 py-3 bg-slate-100 border-2 border-transparent rounded-xl focus:outline-none focus:border-indigo-500 transition-all">
-                        </div>
-                    </div>
-                    <div>
-                        <label for="loginPassword" class="text-sm font-medium text-slate-600">Password</label>
-                        <div class="relative mt-2">
-                            <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="password" id="loginPassword" placeholder="••••••••" class="w-full pl-12 pr-12 py-3 bg-slate-100 border-2 border-transparent rounded-xl focus:outline-none focus:border-indigo-500 transition-all">
-                            <button type="button" id="togglePassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500">
-                                <i class="fa-solid fa-eye"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <button id="loginButton" type="button" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
-                        <span id="loginText">Masuk</span>
-                        <span id="loginSpinner" class="spinner hidden ml-2"></span>
-                    </button>
-                </form>
-
-                <p class="text-center text-sm text-slate-500 mt-8">
-                    Belum punya akun? <a href="#" class="font-semibold text-indigo-600 hover:underline">Hubungi Admin</a>
-                </p>
-            </div>
-
-            <!-- Halaman Dashboard -->
-            <div id="dashboardSection" class="hidden w-full">
-                <div class="text-center mb-6">
-                    <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Dashboard Member</h1>
-                    <p id="dashboardEmail" class="text-slate-500 mt-1 text-sm"></p>
-                </div>
-
-                <div class="space-y-4 no-scrollbar">
-                    <!-- Info Profil -->
-                    <div class="bg-white/80 backdrop-blur-sm p-5 rounded-2xl shadow-lg space-y-4">
-                        <div>
-                            <label class="text-xs font-medium text-slate-500">Nama</label>
-                            <input type="text" id="dashboardNama" class="w-full text-base font-semibold bg-transparent border-none p-0 focus:ring-0" disabled>
-                        </div>
-                        <hr class="border-slate-200">
-                        <div>
-                            <label class="text-xs font-medium text-slate-500">No. WhatsApp</label>
-                            <input type="text" id="dashboardNoWa" class="w-full text-base font-semibold bg-transparent border-none p-0 focus:ring-0" disabled>
-                        </div>
-                    </div>
-
-                    <!-- Info Langganan -->
-                    <div class="bg-white/80 backdrop-blur-sm p-5 rounded-2xl shadow-lg space-y-4">
-                         <div>
-                            <label class="text-xs font-medium text-slate-500">Paket Langganan</label>
-                            <select id="dashboardPackage" class="w-full text-base font-semibold bg-transparent border-none p-0 focus:ring-0 appearance-none" disabled>
-                                <option value="1bulan">1 Bulan</option>
-                                <option value="3bulan">3 Bulan</option>
-                                <option value="6bulan">6 Bulan</option>
-                                <option value="12bulan">12 Bulan</option>
-                            </select>
-                        </div>
-                        <hr class="border-slate-200">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-xs font-medium text-slate-500">Mulai Aktif</label>
-                                <p id="dashboardMasaAktif" class="font-semibold"></p>
-                            </div>
-                             <div>
-                                <label class="text-xs font-medium text-slate-500">Berakhir Pada</label>
-                                <p id="dashboardMasaBerakhir" class="font-semibold"></p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Tombol Aksi -->
-                    <div class="space-y-3 pt-2">
-                        <button id="buatKontenButton" type="button" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-xl shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
-                            <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>
-                            Buat Konten Sekarang
-                        </button>
-                        <div class="grid grid-cols-2 gap-3">
-                            <!-- Kolom 1: Tombol Edit/Simpan -->
-                            <div>
-                                <button id="editProfileButton" class="w-full bg-slate-200 text-slate-800 font-semibold py-3 rounded-xl hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-all flex items-center justify-center">
-                                    <i class="fa-solid fa-pen-to-square mr-2"></i>Edit
-                                </button>
-                                <button id="saveProfileButton" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all hidden items-center justify-center">
-                                    <i class="fa-solid fa-save mr-2"></i>Simpan
-                                </button>
-                            </div>
-                            <!-- Kolom 2: Tombol Keluar -->
-                            <button id="logoutButton" class="w-full bg-red-500 text-white font-semibold py-3 rounded-xl hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-all flex items-center justify-center">
-                                <i class="fa-solid fa-arrow-right-from-bracket mr-2"></i>Keluar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Kontainer untuk pesan fallback dan tombol telah dihapus -->
     </div>
-
-    <!-- Content Creator Section (Iframe) -->
-    <div id="contentCreatorSection" class="hidden">
-        <div class="iframe-container bg-gray-100">
-            <iframe
-                class="iframe-content"
-                src="https://duniakreatorv4.netlify.app/"
-                title="Sematkan Dunia Kreator"
-                allowfullscreen
-                sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-pointer-lock allow-orientation-lock allow-presentation allow-top-navigation"
-            >
-                Browser Anda tidak mendukung iframe. Silakan kunjungi
-                <a href="https://duniakreatorv4.netlify.app/" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">Dunia Kreator</a>.
-            </iframe>
-        </div>
-    </div>
-
-
-    <!-- Modal Pesan -->
-    <div id="overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 hidden transition-opacity duration-300"></div>
-    <div id="messageBox" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11/12 max-w-sm bg-white p-6 rounded-2xl shadow-xl z-50 hidden transition-all duration-300 scale-95 opacity-0">
-        <div class="text-center">
-            <div id="messageIcon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4">
-                <!-- Icon will be inserted here by JS -->
-            </div>
-            <h3 class="text-lg font-medium leading-6 text-gray-900" id="messageTitle">Pemberitahuan</h3>
-            <div class="mt-2">
-                <p class="text-sm text-gray-500" id="messageText"></p>
-            </div>
-        </div>
-        <div class="mt-5">
-            <button id="closeMessageBox" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Tutup
-            </button>
-        </div>
-    </div>
-
-    <!-- Firebase SDKs -->
-    <script type="module">
-        // Import fungsi dari Firebase SDK
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, Timestamp, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-
-        // Konfigurasi Firebase Anda
-        const firebaseConfig = {
-            apiKey: "AIzaSyDbzU3hBrCjmB1k6SFJ7GEGAB3YLdEiuvU",
-            authDomain: "duniakreator-42e66.firebaseapp.com",
-            projectId: "duniakreator-42e66",
-            storageBucket: "duniakreator-42e66.appspot.com",
-            messagingSenderId: "623406959486",
-            appId: "1:623406959486:web:44d18837acb2e9c253812f",
-            measurementId: "G-7BXWW0L07X"
-        };
-
-        // Inisialisasi Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // --- ELEMEN DOM ---
-        const mainApp = document.getElementById('mainApp');
-        const contentCreatorSection = document.getElementById('contentCreatorSection');
-        const loginSection = document.getElementById('loginSection');
-        const dashboardSection = document.getElementById('dashboardSection');
-        const loginEmailInput = document.getElementById('loginEmail');
-        const loginPasswordInput = document.getElementById('loginPassword');
-        const togglePassword = document.getElementById('togglePassword');
-        const loginButton = document.getElementById('loginButton');
-        const loginText = document.getElementById('loginText');
-        const loginSpinner = document.getElementById('loginSpinner');
-        const dashboardEmail = document.getElementById('dashboardEmail');
-        const dashboardNamaInput = document.getElementById('dashboardNama');
-        const dashboardNoWaInput = document.getElementById('dashboardNoWa');
-        const dashboardPackageSelect = document.getElementById('dashboardPackage');
-        const dashboardMasaAktif = document.getElementById('dashboardMasaAktif');
-        const dashboardMasaBerakhir = document.getElementById('dashboardMasaBerakhir');
-        const editProfileButton = document.getElementById('editProfileButton');
-        const saveProfileButton = document.getElementById('saveProfileButton');
-        const logoutButton = document.getElementById('logoutButton');
-        const buatKontenButton = document.getElementById('buatKontenButton');
-        const overlay = document.getElementById('overlay');
-        const messageBox = document.getElementById('messageBox');
-        const messageText = document.getElementById('messageText');
-        const messageTitle = document.getElementById('messageTitle');
-        const messageIcon = document.getElementById('messageIcon');
-        const closeMessageBox = document.getElementById('closeMessageBox');
-
-        // --- FUNGSI ---
-
-        // Fungsi untuk membuat sesi login
-        async function createLoginSession(user) {
-            if (!user) return;
-            try {
-                await addDoc(collection(db, "sessions"), {
-                    userId: user.uid,
-                    email: user.email,
-                    loginAt: Timestamp.now(),
-                    device: navigator.userAgent
-                });
-                console.log("Login session created successfully.");
-            } catch (error) {
-                console.error("Error creating login session:", error);
-            }
-        }
-
-        // Fungsi untuk menampilkan modal pesan
-        function showMessageBox(message, type = 'info') {
-            let iconHtml = '';
-            let title = '';
-            switch (type) {
-                case 'success':
-                    iconHtml = '<i class="fa-solid fa-check text-2xl text-green-600"></i>';
-                    title = 'Berhasil';
-                    break;
-                case 'error':
-                    iconHtml = '<i class="fa-solid fa-xmark text-2xl text-red-600"></i>';
-                    title = 'Gagal';
-                    break;
-                default:
-                    iconHtml = '<i class="fa-solid fa-info text-2xl text-indigo-600"></i>';
-                    title = 'Pemberitahuan';
-            }
-            messageIcon.innerHTML = iconHtml;
-            messageTitle.textContent = title;
-            messageText.innerHTML = message; // Menggunakan innerHTML untuk merender link
-            
-            overlay.classList.remove('hidden');
-            messageBox.classList.remove('hidden');
-            setTimeout(() => {
-                overlay.classList.add('opacity-100');
-                messageBox.classList.remove('scale-95', 'opacity-0');
-            }, 10);
-        }
-
-        // Fungsi untuk menyembunyikan modal pesan
-        function hideMessageBox() {
-            overlay.classList.remove('opacity-100');
-            messageBox.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                overlay.classList.add('hidden');
-                messageBox.classList.add('hidden');
-            }, 300);
-        }
-
-        // Fungsi untuk toggle visibilitas password
-        togglePassword.addEventListener('click', (e) => {
-            e.preventDefault();
-            const isPassword = loginPasswordInput.type === 'password';
-            loginPasswordInput.type = isPassword ? 'text' : 'password';
-            togglePassword.innerHTML = isPassword ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
-        });
-
-        // Fungsi untuk mengatur mode edit di dashboard
-        function setDashboardEditable(isEditable) {
-            const inputs = [dashboardNamaInput, dashboardNoWaInput];
-            if (isEditable) {
-                inputs.forEach(input => {
-                    input.disabled = false;
-                    input.classList.add('bg-slate-100', 'p-2', 'rounded-lg', 'focus:ring-2', 'focus:ring-indigo-500');
-                });
-                editProfileButton.classList.add('hidden');
-                saveProfileButton.classList.remove('hidden');
-                dashboardPackageSelect.disabled = true;
-            } else {
-                inputs.forEach(input => {
-                    input.disabled = true;
-                    input.classList.remove('bg-slate-100', 'p-2', 'rounded-lg', 'focus:ring-2', 'ring-indigo-500');
-                });
-                editProfileButton.classList.remove('hidden');
-                saveProfileButton.classList.add('hidden');
-                dashboardPackageSelect.disabled = true;
-            }
-        }
-
-        // Fungsi untuk mengisi data dashboard dan memeriksa langganan
-        async function populateDashboard(user) {
-            try {
-                const userDocRef = doc(db, "users", user.uid);
-                const userDocSnap = await getDoc(userDocRef);
-
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    dashboardEmail.textContent = user.email;
-                    dashboardNamaInput.value = userData.nama || '';
-                    dashboardNoWaInput.value = userData.noWa || '';
-                    
-                    if (userData.langganan && userData.langganan.berakhir && userData.langganan.berakhir.toDate() > new Date()) {
-                        dashboardPackageSelect.value = userData.langganan.paket || '1bulan';
-                        const formatDate = (date) => date ? date.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A';
-                        dashboardMasaAktif.textContent = formatDate(userData.langganan.mulai);
-                        dashboardMasaBerakhir.textContent = formatDate(userData.langganan.berakhir);
-                        
-                        buatKontenButton.disabled = false;
-                        buatKontenButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        dashboardMasaAktif.textContent = 'Tidak Aktif';
-                        dashboardMasaBerakhir.textContent = 'Tidak Aktif';
-                        
-                        buatKontenButton.disabled = true;
-                        buatKontenButton.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
-                } else {
-                    showMessageBox("Data profil tidak ditemukan. Hubungi admin.", 'error');
-                    dashboardEmail.textContent = user.email;
-                }
-            } catch (error) {
-                console.error("Error fetching user data:", error);
-                if (error.code === 'permission-denied') {
-                     showMessageBox('Langganan Anda telah berakhir atau Anda tidak memiliki izin. Silakan hubungi admin.', 'error');
-                     handleLogout();
-                } else {
-                    showMessageBox(`Gagal memuat data profil: ${error.message}`, 'error');
-                }
-            }
-        }
-        
-        // Fungsi untuk menangani logout
-        async function handleLogout() {
-            try {
-                await signOut(auth);
-            } catch (error) {
-                console.error("Logout error:", error);
-                showMessageBox(`Gagal keluar: ${error.message}`, 'error');
-            }
-        }
-
-        // --- SCRIPT UTAMA ---
-        async function main() {
-            try {
-                // Atur persistensi otentikasi ke lokal (untuk sesi yang tersimpan)
-                await setPersistence(auth, browserLocalPersistence);
-                console.log("Authentication persistence set to local.");
-            } catch (error) {
-                console.error("Error setting auth persistence:", error);
-                if (error.code == 'auth/unsupported-browser') {
-                    showMessageBox("Browser Anda tidak mendukung penyimpanan sesi login. Anda mungkin perlu login setiap kali membuka.", "info");
-                }
-            }
-
-            // Listener status otentikasi
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    await populateDashboard(user);
-                    mainApp.classList.remove('hidden');
-                    contentCreatorSection.classList.add('hidden');
-                    document.body.classList.remove('iframe-body');
-                    loginSection.classList.add('hidden');
-                    dashboardSection.classList.remove('hidden');
-                    setDashboardEditable(false);
-                } else {
-                    mainApp.classList.remove('hidden');
-                    contentCreatorSection.classList.add('hidden');
-                    document.body.classList.remove('iframe-body');
-                    dashboardSection.classList.add('hidden');
-                    loginSection.classList.remove('hidden');
-                    loginEmailInput.value = '';
-                    loginPasswordInput.value = '';
-                }
-            });
-        }
-
-        // --- EVENT LISTENERS ---
-
-        // Listener tombol login
-        loginButton.addEventListener('click', async () => {
-            const email = loginEmailInput.value.trim();
-            const password = loginPasswordInput.value;
-
-            if (!email || !password) {
-                showMessageBox('Email dan password harus diisi.', 'error');
-                return;
-            }
-
-            loginText.classList.add('hidden');
-            loginSpinner.classList.remove('hidden');
-            loginButton.disabled = true;
-
-            try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                await createLoginSession(userCredential.user);
-            } catch (error) {
-                console.error("Login error:", error.code);
-                let errorMessage = "Terjadi kesalahan saat login.";
-                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                    errorMessage = "Email atau password yang Anda masukkan salah.";
-                } else if (error.code === 'auth/invalid-email') {
-                    errorMessage = "Format email tidak valid.";
-                }
-                showMessageBox(errorMessage, 'error');
-            } finally {
-                loginText.classList.remove('hidden');
-                loginSpinner.classList.add('hidden');
-                loginButton.disabled = false;
-            }
-        });
-        
-        // Listener tombol "Buat Konten Sekarang"
-        buatKontenButton.addEventListener('click', () => {
-            if (buatKontenButton.disabled) {
-                const adminNumber = '6285966760134';
-                const message = encodeURIComponent('halo kangsantri saya mau nambah langganan');
-                const waLink = `https://wa.me/${adminNumber}?text=${message}`;
-                const popupMessage = `Langganan Anda telah berakhir. Silakan hubungi admin untuk perpanjangan.<br/><br/><a href="${waLink}" target="_blank" rel="noopener noreferrer" class="font-bold text-indigo-600 hover:underline">Hubungi Admin Sekarang</a>`;
-                showMessageBox(popupMessage, 'error');
-            } else {
-                const user = auth.currentUser;
-                if (user) {
-                    mainApp.classList.add('hidden');
-                    contentCreatorSection.classList.remove('hidden');
-                    document.body.classList.add('iframe-body');
-                }
-            }
-        });
-
-        // Listener tombol edit profil
-        editProfileButton.addEventListener('click', () => {
-            setDashboardEditable(true);
-            showMessageBox('Anda sekarang dapat mengedit Nama dan No. WhatsApp.', 'info');
-        });
-
-        // Listener tombol simpan profil
-        saveProfileButton.addEventListener('click', async () => {
-            const user = auth.currentUser;
-            if (!user) {
-                showMessageBox("Sesi Anda berakhir, silakan login kembali.", 'error');
-                return;
-            }
-
-            saveProfileButton.disabled = true;
-            saveProfileButton.innerHTML = '<span class="spinner"></span><span class="ml-2">Menyimpan...</span>';
-
-            const updatedData = {
-                nama: dashboardNamaInput.value.trim(),
-                noWa: dashboardNoWaInput.value.trim(),
-            };
-
-            try {
-                const userDocRef = doc(db, "users", user.uid);
-                await setDoc(userDocRef, updatedData, { merge: true });
-                showMessageBox('Profil berhasil diperbarui!', 'success');
-                setDashboardEditable(false);
-            } catch (error) {
-                console.error("Update error:", error);
-                showMessageBox(`Gagal menyimpan profil: ${error.message}`, 'error');
-            } finally {
-                saveProfileButton.disabled = false;
-                saveProfileButton.innerHTML = '<i class="fa-solid fa-save mr-2"></i>Simpan';
-            }
-        });
-
-        // Listener untuk tombol logout
-        logoutButton.addEventListener('click', handleLogout);
-        
-        // Listener untuk menutup modal
-        closeMessageBox.addEventListener('click', hideMessageBox);
-        overlay.addEventListener('click', hideMessageBox);
-        
-        // Jalankan fungsi utama aplikasi
-        main();
-
-    </script>
+    <!-- Menghubungkan ke file JavaScript eksternal -->
+    <script src="script.js"></script>
 </body>
 </html>
