@@ -9,7 +9,6 @@
         html, body {
             height: 100%; /* Memastikan html dan body mengambil tinggi penuh */
             margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
         body {
@@ -19,6 +18,7 @@
             align-items: center;
             min-height: 100vh; /* Tetap mempertahankan min-height untuk centering */
             background-color: #f0f2f5;
+            padding: 10px; /* Menambahkan padding 10px di semua sisi body */
             /* overflow: hidden; Dihapus untuk memungkinkan scrolling jika konten melebihi viewport */
         }
         .container {
@@ -28,7 +28,7 @@
             padding: 0;
             width: 100vw;
             max-width: 100vw;
-            height: 100vh; /* Container mengambil 100% tinggi viewport */
+            height: calc(100vh - 20px); /* Container mengambil tinggi penuh viewport dikurangi padding body (10px atas + 10px bawah) */
             display: flex;
             flex-direction: column;
             align-items: center;
