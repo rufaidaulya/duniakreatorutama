@@ -1,776 +1,830 @@
-<!DOCTYPE html>
-<html lang="id" class="scroll-smooth">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DuniaKreator - Platfrorm AI Canggih Buat Otomisasi Konten Video Di Google Veo3</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { GoogleGenAI, Chat } from '@google/genai';
+import { getTextApiKey } from '../services/geminiClient';
+import { fileToBase64, fileToDataUrl } from '../utils/fileUtils';
+import { dbGetAllDekaAiChats, dbSaveDekaAiChat, dbDeleteDekaAiChat, dbClearDekaAiHistory, Message, MessagePart, DekaAiHistory } from '../utils/db';
+import { DKIcon, UploadIcon, XIcon, ArrowUpIcon, ClipboardIcon, CheckIcon, TrashIcon, ChevronDownIcon, MenuIcon, PencilIcon, CpuChipIcon } from './IconComponents';
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+const PROMPT_TEMPLATES: Record<string, { label: string; prompt: string }> = {
+    'default': {
+        label: "Asisten Umum DekaAI",
+        prompt: `Kamu adalah DekaAI, asisten resmi aplikasi "DuniaKreator". Ngobrolnya santai aja ya. Selalu tanyain dulu buat klarifikasi kalau permintaan user kurang jelas. Kamu itu jago banget soal bikin konten dan semua fitur di DuniaKreator. Kalau ada yang minta tolong, kasih panduan langkah-langkah yang gampang. Kalau minta ide kreatif, kasih contoh yang konkret. Semua jawabanmu harus dalam Bahasa Indonesia yang santai dan enak dibaca (pakai markdown ya). Pastikan outputnya bersih, gak ada simbol atau karakter aneh.`
+    },
+    'person-to-video': {
+        label: "Foto Karakter Jadi Video",
+        prompt: `
+Kamu adalah ahli prompt Veo 3 untuk membuat video dari foto orang (karakter). Ngobrol dengan user pakai Bahasa Indonesia yang santai, supaya gampang dipahami. Alurnya gini:
+1. **Mulai Percakapan**: Sapa user dulu, lalu tanya: "Mau bikin video dari foto siapa? Orangnya lagi ngapain, di mana, dan suasananya kayak gimana?"
+2. **Minta Foto**: Setelah user jawab, bilang: "Oke, keren! Boleh kirim fotonya sekarang?"
+3. **Tanya Detail Aksi, Emosi, Latar Belakang**: Setelah foto diterima, analisis sekilas, lalu tanya lagi dengan lebih spesifik:
+   - Aksinya seperti apa? (jalan, lari, duduk, melambaikan tangan, dll.)
+   - Ekspresi/emosinya seperti apa? (senang, sedih, terkejut, marah, dll.)
+   - Latar belakangnya seperti apa? (pantai, kota, hutan, studio, dll.)
+4. **Tanya Dialog (opsional)**: Setelah user jawab semua itu, tanyakan: 
+   - "Mau ada dialog/lip sync juga nggak di videonya?"
+   - Kalau iya, lanjut tanya:
+     > "Dialognya mau pakai bahasa apa? (misalnya: Bahasa Indonesia, Bahasa Inggris, Bahasa Jawa, dll.)"
+     > "Logatnya seperti apa? (misalnya: Indonesia standar, Jawa Timur, Sunda, Betawi, dll.)"
+5. **Tanya Durasi**: Setelah semua info lengkap, tanyakan juga: "Mau durasinya berapa detik? Nanti aku bagi jadi beberapa adegan ya, 1 adegan itu sekitar 8 detik di Veo."
+6. **Proses & Buat Prompt**: Setelah semua info lengkap, buat prompt untuk setiap adegan (8 detik per adegan).
+   - **WAJIB**: Prompt video final dalam Bahasa Inggris, detail, sinematik, dan dalam blok kode markdown terpisah supaya gampang disalin.
+   - Setiap scene harus punya:
+     - Deskripsi visual lengkap.
+     - Info kamera (angle, lighting, close-up/dll.).
+     - Format vertikal (9:16, 1080×1920).
+     - Negative prompt (blurry, watermark, distorted, dll.).
+     - Kalau ada dialog, tuliskan teks dialognya sesuai permintaan (tetap dalam bahasa & logat yang diinginkan user).
 
-    <style>
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            background-color: #f8fafc; /* slate-50 */
-        }
-        .gradient-bg {
-            background-color: #f3f4f6;
-            background-image: 
-                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 0.2) 0px, transparent 50%),
-                radial-gradient(at 98% 1%, hsla(225, 39%, 30%, 0.2) 0px, transparent 50%);
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* Animation Styles */
-        .reveal-on-scroll {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-            will-change: opacity, transform;
-        }
-        .reveal-on-scroll.is-visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .video-thumbnail-card {
-            cursor: pointer;
-        }
+7. **Contoh Output Format:**
+   Adegan 1:
+   \`\`\`
+   A hyperrealistic 8k digital photograph of a young woman wearing a red dress standing on a beach at sunset, smiling softly, the waves behind her shimmer with golden light. Camera: close-up, soft warm lighting, cinematic tone. Format: Vertical (portrait), 1080x1920, 9:16. Negative Prompt: blurry, watermark, distorted face, hand, reflection.
+   \`\`\`
+   Adegan 2:
+   \`\`\`
+   A hyperrealistic 8k digital photograph of the woman walking slowly along the shore, looking thoughtfully at the horizon, her dress fluttering in the breeze. Camera: side view, medium shot, soft golden light. Format: Vertical (portrait), 1080x1920, 9:16. Negative Prompt: blurry, watermark, distorted face, hand, reflection.
+   \`\`\`
+   Adegan 3:
+   \`\`\`
+   A hyperrealistic 8k digital photograph of the woman turning back and waving at the camera, her smile bright, with seagulls flying in the background. Camera: front view, slightly low angle, vibrant tones. Format: Vertical (portrait), 1080x1920, 9:16. She lip syncs in Javanese (East Java accent): “Halo rek, ayo dolan bareng nang kene!” Negative Prompt: blurry, watermark, distorted face, hand, reflection.
+   \`\`\`
+8. **Jaga Output Bersih**: Jangan sampai ada karakter aneh atau simbol tidak perlu di output.
+`
+    },
+    'product-to-video': {
+        label: "Foto Produk Jadi Video",
+        prompt: `Kamu adalah ahli prompt Veo 3 untuk iklan produk. Kamu harus memandu user langkah demi langkah. Ngobrolnya pakai Bahasa Indonesia yang santai ya. Alurnya gini:
+1.  **Mulai Percakapan**: Sapa user dan minta foto: tanyakan mau bikin video iklan produk seperti apa dan minta user kirim fotonya untuk di analisa.
+2.  **Tanya Gaya Video**: Setelah user kirim foto, analisia, lalu tanyakan: "Sip, fotonya udah kuterima. Videonya mau ada narasi/dialog, atau mau fokus ke produknya aja yang gerak-gerak? Kalo produknya aja, mau dipegang tangan atau gerak sendiri?"
+3.  **Tanya Durasi**: Setelah user jawab gaya videonya, tanyakan: "Oke, siap. Mau dibuat total berapa detik videonya? Nanti aku bagi jadi beberapa adegan ya, 1 adegan itu sekitar 8 detik di Veo."
+4.  **Proses & Buat Prompt**: Setelah user kasih durasi, langsung proses. Buat prompt untuk setiap adegan (8 detik per adegan).
+    - **PENTING**: Prompt video finalnya WAJIB dalam Bahasa Inggris (kecuali bagian dialognya), detail, dan sinematik.
+    - **WAJIB**: Format setiap prompt adegan dalam blok kode markdown terpisah biar gampang disalin.
+    - Setiap prompt adegan harus punya deskripsi visual, info kamera, format (selalu Vertikal 9:16), dan Negative Prompt.
+    - Ikuti contoh format ini persis:
+      - **Contoh Produk Gerak Sendiri (tanpa dialog):**
+        Adegan 1:
+        \`\`\`
+        A hyperrealistic 8k digital photograph of a red remote control off-road racing car (number 34) placed on a sandy track, its wheels begin to spin as if coming alive. The car lights up slightly as dust rises around it. Camera: stationary, close-up on wheel, macro details. Format: Vertical (portrait), 1080x1920, 9:16. Negative Prompt: blurry, watermark, human face, hand, distorted, reflection.
+        \`\`\`
+        Adegan 2:
+        \`\`\`
+        A hyperrealistic 8k digital photograph of the red RC off-road car drifting sharply on a dirt curve, kicking up a cloud of dust, then performing a small jump over a ramp, looking dynamic and fast. Camera: side view tracking shot, crisp details, warm outdoor lighting. Format: Vertical (portrait), 1080x1920, 9:16. Negative Prompt: blurry, watermark, human face, hand, distorted, reflection.
+        \`\`\`
+      - **Contoh Dipegang Tangan (dengan dialog):**
+        Adegan 1:
+        \`\`\`
+        A hyperrealistic 8k digital photograph of a human hand holding a red RC off-road car (number 34) above a wooden table, the hand gently rotates it to show details. Camera: POV close-up, soft warm light, vibrant color. Format: Vertical (portrait), 1080x1920, 9:16. He lip syncs in Indonesian: “Wah keren banget mobil remot ini, warnanya merah menyala!” Negative Prompt: blurry, watermark, human face, reflection.
+        \`\`\`
+        Adegan 2:
+        \`\`\`
+        A hyperrealistic 8k digital photograph of the hand placing the RC car on a sandy track, then pushing it slightly as the wheels start moving. Camera: POV close-up, outdoor light, realistic dust details. Format: Vertical (portrait), 1080x1920, 9:16. He lip syncs in Indonesian: “Lihat tuh bannya, siap buat off-road!” Negative Prompt: blurry, watermark, human face, reflection.
+        \`\`\`
+    - Pastikan outputnya bersih tanpa karakter aneh.`
+    },
+    'replicate-viral': {
+        label: "Replika Konten Viral",
+        prompt: `Kamu adalah DekaAI, seorang ahli pereplikasi video viral dan pakar prompt engineer untuk Google Veo 3. Tujuan utamamu adalah membantu pengguna menganalisis video yang mereka unggah dan membuat prompt Veo 3 yang super detail untuk menirunya semirip mungkin. Gunakan Bahasa Indonesia yang santai dan profesional.
 
-        /* Pulse animation for CTA buttons */
-        @keyframes pulse-green {
-          0%, 100% {
-            transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
-          }
-          50% {
-            transform: scale(1.05);
-            box-shadow: 0 0 0 10px rgba(22, 163, 74, 0);
-          }
-        }
-        .animate-pulse-green {
-            animation: pulse-green 2s infinite;
-        }
-    </style>
-</head>
-<body class="text-slate-800 leading-relaxed">
+**PENTING: Selalu mulai percakapan pertama dengan pesan ini, tanpa tambahan apapun:**
+"Halo! Siap mereplika konten viral? Unggah video yang mau ditiru ya. **Info penting: biar hasilnya maksimal, videonya jangan lebih dari 15MB atau durasi video di atas 30 Detik ya.** Kalau lebih dari itu, mungkin hasilnya kurang akurat."
 
-    <div id="landingPage">
-        <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-30 bg-white/95 backdrop-blur-lg">
-            <div class="px-4 pt-24 pb-8 space-y-6 flex flex-col items-center text-center w-full">
-                <a href="#unggulan" class="mobile-menu-link text-xl font-bold text-slate-700 hover:text-indigo-600">Keunggulan</a>
-                <a href="#harga" class="mobile-menu-link text-xl font-bold text-slate-700 hover:text-indigo-600">Harga</a>
-                <a href="#testimonials" class="mobile-menu-link text-xl font-bold text-slate-700 hover:text-indigo-600">Testimoni</a>
-                <hr class="w-24 border-t-2 border-slate-200 my-4" />
-                <a href="https://santridigital.net/app/duniakreator/landingpage/" class="mobile-menu-link bg-indigo-600 text-white font-semibold text-lg px-8 py-3 rounded-xl shadow-md hover:bg-indigo-700 w-64 text-center">
-                    Masuk
-                </a>
-                <a href="#harga" class="mobile-menu-link bg-green-600 text-white font-semibold text-lg px-8 py-3 rounded-xl shadow-md hover:bg-green-700 w-64 text-center">
-                    Daftar Sekarang
-                </a>
+**Alur Percakapan & Tugasmu:**
+
+1.  **Tunggu Video dari User**: Setelah mengirim pesan pembuka di atas, tunggu sampai user mengunggah video. Jangan tanya apa-apa lagi sebelum video diterima.
+
+2.  **Analisis Video (Setelah Diunggah)**: Begitu user mengunggah video, tugasmu adalah menganalisisnya secara mendalam. Perhatikan:
+    -   **Subjek & Karakter**: Siapa atau apa yang ada di video? Bagaimana penampilan mereka?
+    -   **Lingkungan**: Di mana lokasinya? Waktu (pagi/siang/malam)? Cuaca?
+    -   **Aksi**: Apa yang terjadi di setiap adegan?
+    -   **Sinematografi**: Bagaimana pergerakan kamera, sudut pengambilan gambar, pencahayaan, dan gaya visualnya?
+    -   **Audio**: Apa ada musik latar? Efek suara? Bagaimana mood-nya?
+    -   **Dialog**: Apakah ada yang berbicara?
+
+3.  **Konfirmasi & Minta Dialog & Music/Sound Effek (Jika Perlu)**: Setelah menganalisis, berikan ringkasan singkat hasil analisismu kepada user. Lalu tanyakan:
+    -   "Oke, videonya udah aku analisis. Kelihatannya tentang [sebutkan ringkasan singkat]. Nah, untuk video replikanya nanti, kamu mau pakai dialog & Sound yang sama persis atau mau pakai dialog baru? Saran saya pakai dialog baru aja, biar natural, karena ini masih tahap uji coba. Kalau mau pakai dialog baru, silakan ketik di sini ya."
+
+4.  **Buat Prompt Final**: Setelah user memberikan konfirmasi atau dialog baru, langsung buat prompt Veo 3.
+    -   **Bagi menjadi Adegan 8 Detik**: Potong alur video menjadi beberapa adegan, di mana setiap adegan merepresentasikan sekitar 8 detik dari video asli.
+    -   **Prompt per Adegan**: Untuk setiap adegan, buat satu blok prompt yang super detail.
+    -   **WAJIB**: Prompt video final harus dalam **Bahasa Inggris** (kecuali bagian dialog), sangat detail, sinematik, dan menggunakan istilah-istilah teknis kamera/pencahayaan yang relevan.
+    -   **WAJIB**: Setiap adegan harus dalam **blok kode markdown terpisah** agar mudah disalin.
+    -   **Konsistensi**: Pastikan deskripsi karakter dan lingkungan konsisten di semua prompt adegan.
+    -   **Aksi Karakter**: Pastikan Aksi Karakter Sama Persis Dengan Video Yang Di Analisa di semua prompt adegan.
+    -   **Format Vertikal**: Asumsikan semua video viral adalah format vertikal (9:16).
+    -   **Sertakan Audio & Dialog**: Deskripsikan audio (musik, sfx) dan sertakan dialog dengan format lip-sync yang benar.
+    -   **Negative Prompt**: Sertakan negative prompt yang komprehensif.
+
+5.  **Jaga Output Bersih**: Pastikan tidak ada karakter aneh atau simbol yang tidak perlu di output final.`
+    },
+    'optimize-story': {
+        label: "Optimalkan Ide Cerita",
+        prompt: `Kamu itu jagoannya nulis skenario dan 'dokter cerita'. Ngobrolnya santai. Kalau user kasih ide cerita simpel dalam Bahasa Indonesia, tanyain dulu konteks lainnya (misal: nuansa, genre, atau buat siapa ceritanya). Habis itu, kembangin idenya jadi cerita yang detail lengkap dengan karakter, motivasi, struktur 3 babak (awal, tengah, akhir), adegan kunci, dan contoh dialog. Hasilnya harus keren, detail, dan bersih dari simbol-simbol aneh.`
+    },
+    'marketing-idea': {
+        label: "Buat Ide Marketing/Iklan",
+        prompt: `Kamu itu ahli strategi marketing senior. Ngobrolnya santai. Kalau user ngasih produk atau jasa, tanya dulu target audiensnya siapa dan mau di platform apa (kalau belum jelas). Terus, kasih 3 ide kampanye iklan yang beda, kreatif, dan cocok buat sosmed Indonesia. Buat tiap ide, sertakan konsep inti, target audiens, slogan yang nempel, dan deskripsi singkat iklan videonya. Jawabannya pakai Bahasa Indonesia yang santai dan bersih ya.`
+    },
+    'viral-strategy': {
+        label: "Rancang Konten Viral",
+        prompt: `Kamu itu ahli strategi konten viral khusus pasar Indonesia. Ngobrolnya santai. Kalau user minta strategi biar viral, pastiin dulu dia mau pakai platform apa (TikTok, Reels, dll) dan suka bikin konten jenis apa. Terus, kasih strategi lengkap yang bisa langsung dipraktekin dalam Bahasa Indonesia: info audio dan format yang lagi tren, tips bikin hook kuat 3 detik pertama, cara cerita yang nyambung sama budaya lokal, strategi hashtag, dan waktu posting terbaik. Bikin jawabannya yang gampang diikuti dan bersih ya.`
+    }
+};
+
+
+interface DekaAiModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface CustomTemplate {
+  id: string;
+  label: string;
+  prompt: string;
+}
+
+const TypingIndicator: React.FC = () => (
+    <div className="flex items-center gap-1.5 px-2">
+        <div className="w-2 h-2 bg-brand-text-secondary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+        <div className="w-2 h-2 bg-brand-text-secondary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+        <div className="w-2 h-2 bg-brand-text-secondary rounded-full animate-bounce"></div>
+    </div>
+);
+
+const CodeBlock: React.FC<{ language: string; code: string; onCopy: () => void; copied: boolean }> = ({ language, code, onCopy, copied }) => {
+    return (
+        <div className="bg-black/50 rounded-lg my-2 text-white">
+            <div className="flex justify-between items-center px-4 py-1.5 bg-gray-700/50 rounded-t-lg">
+                <span className="text-xs text-gray-400">{language || 'code'}</span>
+                <button onClick={onCopy} className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white">
+                    {copied ? <CheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4" />}
+                    {copied ? 'Tersalin' : 'Salin'}
+                </button>
             </div>
+            <pre className="p-4 text-sm whitespace-pre-wrap break-words overflow-x-auto">
+                <code>{code}</code>
+            </pre>
         </div>
+    );
+};
 
-        <header id="header" class="fixed top-0 left-0 right-0 z-40 transition-all duration-300">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-between h-20">
-                    <a href="#" class="flex items-center space-x-2 flex-shrink-0">
-                        <img src="https://i.postimg.cc/7YhMT7Dc/duniakreator.png" alt="DekaBot Logo" class="h-8 w-auto" onerror="this.onerror=null;this.src='https://placehold.co/100x32/6366f1/white?text=DK';">
-                        <span class="font-bold text-xl text-slate-800">DuniaKreator</span>
-                    </a>
-                    
-                    <div class="hidden md:flex items-center space-x-4">
-                        <nav class="flex items-center space-x-8">
-                            <a href="#unggulan" class="font-medium text-slate-600 hover:text-indigo-600 transition-colors">Keunggulan</a>
-                            <a href="#harga" class="font-medium text-slate-600 hover:text-indigo-600 transition-colors">Harga</a>
-                            <a href="#testimonials" class="font-medium text-slate-600 hover:text-indigo-600 transition-colors">Testimoni</a>
-                        </nav>
-                         <div class="flex items-center space-x-2 sm:space-x-4">
-                            <a href="#harga" class="bg-green-600 text-white font-semibold px-4 sm:px-5 py-2.5 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300 animate-pulse-green text-sm sm:text-base">
-                                 Daftar Sekarang
-                            </a>
-                            <a href="https://santridigital.net/app/duniakreator/landingpage/" class="bg-indigo-600 text-white font-semibold px-4 sm:px-5 py-2.5 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 text-sm sm:text-base">
-                                 Masuk
-                            </a>
-                        </div>
-                    </div>
+const renderTextWithMarkdown = (text: string) => {
+  const lines = text.split('\n');
+  const elements: React.ReactElement[] = [];
+  let listType: 'ul' | 'ol' | null = null;
+  let listItems: React.ReactElement[] = [];
 
-                    <div class="md:hidden">
-                        <button id="mobile-menu-button" type="button" class="text-slate-700 hover:text-indigo-600 p-2 -mr-2 rounded-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500" aria-controls="mobile-menu" aria-expanded="false">
-                            <span class="sr-only">Buka menu utama</span>
-                            <i id="burger-icon" class="fa-solid fa-bars fa-xl transition-transform duration-300"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </header>
+  const flushList = () => {
+    if (listItems.length > 0) {
+      if (listType === 'ul') {
+        elements.push(<ul key={`ul-${elements.length}`} className="list-disc list-inside my-2 pl-4">{listItems}</ul>);
+      } else if (listType === 'ol') {
+        elements.push(<ol key={`ol-${elements.length}`} className="list-decimal list-inside my-2 pl-4">{listItems}</ol>);
+      }
+      listItems = [];
+      listType = null;
+    }
+  };
 
-        <main class="relative pt-20">
-            <div class="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80" aria-hidden="true">
-                <div class="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-[#808afc] to-[#4f46e5] opacity-30 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" style="clip-path: polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)"></div>
-            </div>
-            <section class="container mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32 text-center">
-                <h1 class="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-slate-900 tracking-tighter">
-                    Waktunya Khayalan <span class="text-indigo-600">Jadi Kenyataan.</span>
-                </h1>
-                <p class="mt-6 max-w-2xl mx-auto text-lg text-slate-600">
-                    Punya ide brilian di kepala tapi bingung cara visualinnya? Ngerasa mentok dan iri liat video orang lain seliweran di FYP? Tenang, sekarang giliranmu bersinar dengan naskah video AI profesional.
-                </p>
-                <div class="mt-10">
-                    <a href="https://santridigital.net/app/duniakreator/landingpage/" class="inline-block bg-indigo-600 text-white font-semibold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105">
-                        Mulai Berkarya Sekarang <i class="fa-solid fa-arrow-right ml-2"></i>
-                    </a>
-                </div>
-            </section>
-        </main>
+  const parseLine = (line: string) => {
+    line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    line = line.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    return <span dangerouslySetInnerHTML={{ __html: line }} />;
+  };
 
-        <section id="unggulan" class="pb-20 bg-white">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16 reveal-on-scroll">
-                    <h2 class="text-3xl sm:text-4xl font-black tracking-tighter text-slate-900">Stop Stres Ngonten, DekaBot Punya Solusinya!</h2>
-                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Merasa idemu lebih keren dari eksekusimu? Ini senjata rahasia yang bikin kontenmu setara ekspektasi.</p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <div class="bg-slate-50 p-8 rounded-2xl border border-slate-200 reveal-on-scroll hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300">
-                        <div class="bg-indigo-100 text-indigo-500 w-16 h-16 rounded-2xl flex items-center justify-center mb-6"><i class="fa-solid fa-users-viewfinder text-3xl"></i></div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-2">Karakter Selalu Sama</h3>
-                        <p class="text-slate-600"><strong class="text-slate-800">Problem:</strong> Bikin cerita bersambung, eh... pemerannya ganti-ganti tiap adegan. Penonton auto kabur, brand jadi ambyar. <br><strong class="text-green-600">Solusi:</strong> Ciptakan naskah untuk film pendek atau iklan dengan karakter AI yang konsisten. Cerita jadi kuat, branding makin mantap!</p>
-                    </div>
-                    <div class="bg-slate-50 p-8 rounded-2xl border border-slate-200 reveal-on-scroll hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300" style="transition-delay: 150ms;">
-                        <div class="bg-indigo-100 text-indigo-500 w-16 h-16 rounded-2xl flex items-center justify-center mb-6"><i class="fa-solid fa-box-open text-3xl"></i></div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-2">Affiliate Tanpa Sample</h3>
-                        <p class="text-slate-600"><strong class="text-slate-800">Problem:</strong> Mau jadi affiliate sultan tapi modal buat beli sampel produk aja ngepas? Akhirnya cuma bisa nonton komisi orang lain. <br><strong class="text-green-600">Solusi:</strong> Gak perlu sampel! DekaBot bisa bikin naskah iklan produk apapun seolah-olah kamu punya studionya. Siap cuan!</p>
-                    </div>
-                     <div class="bg-slate-50 p-8 rounded-2xl border border-slate-200 reveal-on-scroll hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300" style="transition-delay: 300ms;">
-                        <div class="bg-indigo-100 text-indigo-500 w-16 h-16 rounded-2xl flex items-center justify-center mb-6"><i class="fa-solid fa-mobile-screen-button text-3xl"></i></div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-2">Buat Konten Sat-Set Tanpa Ribet</h3>
-                        <p class="text-slate-600"><strong class="text-slate-800">Problem:</strong> Mikirin ide, nulis skrip, eh... pas mau eksekusi, trennya udah ganti. Kapan FYP-nya kalau begini terus? <br><strong class="text-green-600">Solusi:</strong> Ciptakan puluhan naskah video pendek sinematik dalam hitungan menit. Stok konten aman, siap FYP kapan aja!</p>
-                    </div>
-                    <div class="bg-indigo-600 text-white p-8 rounded-2xl shadow-lg reveal-on-scroll md:col-span-2 lg:col-span-3" style="transition-delay: 450ms;">
-                        <div class="flex flex-col md:flex-row items-center text-center md:text-left gap-8">
-                            <img src="https://i.postimg.cc/fyC3kG88/Photoroom-20250703-202213408.png" alt="Grup WhatsApp" class="w-32 h-32 flex-shrink-0">
-                            <div>
-                                <h3 class="text-xl font-bold text-white mb-2">Grup WA Sharing Eksklusif 🤝</h3>
-                                <p class="text-indigo-200"><strong class="text-white">Problem:</strong> Stuck? Butuh pencerahan tapi gak ada teman diskusi? Ngerasa berjuang sendirian di dunia kreator yang kejam ini? <br><strong class="text-green-300">Solusi:</strong> Kamu gak sendiri! Gabung di grup WA eksklusif, sharing bareng ratusan kreator lain, tanya jawab langsung, dan dapatkan inspirasi tanpa batas. Dijamin makin jago!</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+  lines.forEach((line, index) => {
+    const olMatch = line.match(/^\s*(\d+)\.\s+(.*)/);
+    const ulMatch = line.match(/^\s*([*-])\s+(.*)/);
+    const bqMatch = line.match(/^\s*>\s+(.*)/);
 
-        <section id="hasil-karya" class="py-20 bg-white">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8 reveal-on-scroll">
-                <div class="text-center mb-16">
-                    <h2 class="text-3xl sm:text-4xl font-bold text-slate-900">🎬 Lihat Apa yang Dibuat Pakai Naskah DekaBot!</h2>
-                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Dari cerita sinematik hingga iklan produk yang menjual. Ini bukan cuma janji, ini bukti nyata.</p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
-                    <div class="video-thumbnail-card group" data-youtube-id="dP2rXizehdI">
-                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Cerita Sinematik Menyentuh</h3>
-                        <div class="relative rounded-xl overflow-hidden shadow-lg">
-                            <img src="https://img.youtube.com/vi/dP2rXizehdI/hqdefault.jpg" alt="Video Sinematik Menyentuh" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
-                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
-                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="video-thumbnail-card group" data-youtube-id="bjE0vGb9XLc">
-                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Iklan Produk Profesional</h3>
-                         <div class="relative rounded-xl overflow-hidden shadow-lg">
-                            <img src="https://img.youtube.com/vi/bjE0vGb9XLc/hqdefault.jpg" alt="Iklan Produk Profesional" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
-                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
-                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="video-thumbnail-card group" data-youtube-id="bG8eb33HGuU">
-                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Film Pendek Karakter</h3>
-                        <div class="relative rounded-xl overflow-hidden shadow-lg">
-                            <img src="https://img.youtube.com/vi/bG8eb33HGuU/hqdefault.jpg" alt="Film Pendek Karakter" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
-                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
-                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="video-thumbnail-card group" data-youtube-id="3IeybTGeUTw">
-                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Iklan Mode Berita</h3>
-                        <div class="relative rounded-xl overflow-hidden shadow-lg">
-                            <img src="https://img.youtube.com/vi/3IeybTGeUTw/hqdefault.jpg" alt="Iklan Mode Berita" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
-                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
-                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="video-thumbnail-card group" data-youtube-id="5_v5g4E2CaU">
-                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Konten Lucu Viral</h3>
-                         <div class="relative rounded-xl overflow-hidden shadow-lg">
-                            <img src="https://img.youtube.com/vi/5_v5g4E2CaU/hqdefault.jpg" alt="Konten Lucu Viral" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
-                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
-                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="video-thumbnail-card group" data-youtube-id="Z-aOKvJmmvY">
-                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Lirik Lagu Profesional</h3>
-                        <div class="relative rounded-xl overflow-hidden shadow-lg">
-                            <img src="https://img.youtube.com/vi/Z-aOKvJmmvY/hqdefault.jpg" alt="Lirik Lagu Profesional" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
-                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
-                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+    if (olMatch) {
+      if (listType !== 'ol') flushList();
+      listType = 'ol';
+      listItems.push(<li key={index}>{parseLine(olMatch[2])}</li>);
+    } else if (ulMatch) {
+      if (listType !== 'ul') flushList();
+      listType = 'ul';
+      listItems.push(<li key={index}>{parseLine(ulMatch[2])}</li>);
+    } else if (bqMatch) {
+      flushList();
+      elements.push(<blockquote key={index} className="border-l-4 border-gray-500 pl-4 italic my-2">{parseLine(bqMatch[1])}</blockquote>);
+    } else {
+      flushList();
+      if (line.trim() !== '') {
+        elements.push(<p key={index} className="my-1">{parseLine(line)}</p>);
+      } else {
+        if (elements.length > 0 && (elements[elements.length - 1].props as { className?: string }).className?.includes('h-4') === false) {
+           elements.push(<div key={index} className="h-4"></div>);
+        }
+      }
+    }
+  });
 
-        <section class="py-16 bg-white">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <a href="#harga" class="inline-block bg-green-600 text-white font-semibold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300 transform hover:scale-105 animate-pulse-green">
-                    👉 Amankan Harga Promo Sekarang!
-                </a>
-            </div>
-        </section>
-
-        <section id="workflow" class="py-20 bg-white">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16 reveal-on-scroll">
-                    <h2 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter">Gak Perlu Skill Dewa, <span class="text-indigo-600">Anak SD pun Bisa!</span></h2>
-                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Lupakan pusing mikirin teknis. Kami sudah merancang DekaBot agar kamu bisa fokus 100% pada idemu. Cukup ikuti 4 langkah simpel ini:</p>
-                </div>
-                <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    <div class="bg-slate-50 rounded-2xl p-6 text-center reveal-on-scroll hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-indigo-200">
-                        <div class="flex items-center justify-center h-24 w-24 rounded-full bg-indigo-100 mx-auto mb-6 relative">
-                           <i class="fa-solid fa-rocket text-4xl text-indigo-600"></i>
-                           <span class="absolute -top-2 -right-2 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-4 border-white">1</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-800">Buat Avatar/Produk</h3>
-                        <p class="mt-2 text-slate-500 text-sm">Ciptakan karakter atau deskripsikan produk utamamu.</p>
-                    </div>
-                    <div class="bg-slate-50 rounded-2xl p-6 text-center reveal-on-scroll hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-indigo-200" style="transition-delay: 100ms;">
-                        <div class="flex items-center justify-center h-24 w-24 rounded-full bg-indigo-100 mx-auto mb-6 relative">
-                           <i class="fa-solid fa-pen-ruler text-4xl text-indigo-600"></i>
-                           <span class="absolute -top-2 -right-2 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-4 border-white">2</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-800">DekaBot Racik Naskah</h3>
-                        <p class="mt-2 text-slate-500 text-sm">Biarkan AI meracik naskah sinematik yang terstruktur.</p>
-                    </div>
-                     <div class="bg-slate-50 rounded-2xl p-6 text-center reveal-on-scroll hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-indigo-200" style="transition-delay: 200ms;">
-                         <div class="flex items-center justify-center h-24 w-24 rounded-full bg-indigo-100 mx-auto mb-6 relative">
-                           <i class="fa-solid fa-copy text-4xl text-indigo-600"></i>
-                           <span class="absolute -top-2 -right-2 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-4 border-white">3</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-800">Salin ke Veo3</h3>
-                        <p class="mt-2 text-slate-500 text-sm">Salin naskah yang sudah sempurna dengan satu klik.</p>
-                    </div>
-                     <div class="bg-slate-50 rounded-2xl p-6 text-center reveal-on-scroll hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-indigo-200" style="transition-delay: 300ms;">
-                         <div class="flex items-center justify-center h-24 w-24 rounded-full bg-indigo-100 mx-auto mb-6 relative">
-                           <i class="fa-solid fa-wand-magic-sparkles text-4xl text-indigo-600"></i>
-                           <span class="absolute -top-2 -right-2 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-4 border-white">4</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-800">Edit & Posting</h3>
-                        <p class="mt-2 text-slate-500 text-sm">Sempurnakan videomu dan bagikan ke seluruh dunia.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
-        <section id="differentiator" class="py-20 bg-slate-50">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16 reveal-on-scroll">
-                    <h2 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter">Ini Bukan Pembuat Prompt Biasa, <span class="text-indigo-600">Ini Sutradara AI-mu!</span></h2>
-                    <p class="mt-4 text-lg text-slate-600 max-w-3xl mx-auto">Lupakan prompt satu baris yang hasilnya untung-untungan. DekaBot merancang cerita utuh, adegan per adegan, siap untuk mengubah khayalanmu jadi video nyata di Veo3.</p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                    <div class="bg-white p-8 rounded-2xl border-2 border-slate-200 reveal-on-scroll">
-                        <div class="flex items-center gap-4 mb-4">
-                            <div class="bg-red-100 text-red-500 w-12 h-12 rounded-lg flex items-center justify-center text-2xl font-bold">❌</div>
-                            <h3 class="text-2xl font-bold text-slate-700">Prompt Biasa</h3>
-                        </div>
-                        <p class="text-slate-500 mb-4 italic">"Seekor kucing lucu main skateboard."</p>
-                        <div class="bg-slate-50 p-4 rounded-lg text-slate-600 text-sm space-y-3">
-                            <p><strong class="font-semibold text-red-500">Hasilnya?</strong> Mungkin bagus, mungkin aneh. Gak ada kontrol cerita.</p>
-                            <p><strong class="font-semibold text-red-500">Karakter?</strong> Bisa beda-beda tiap generate.</p>
-                            <p><strong class="font-semibold text-red-500">Sinematik?</strong> Tergantung keberuntungan.</p>
-                        </div>
-                    </div>
-                    <div class="bg-white border-2 border-indigo-500 p-8 rounded-2xl reveal-on-scroll shadow-2xl shadow-indigo-100" style="transition-delay: 200ms;">
-                        <div class="flex items-center gap-4 mb-4">
-                            <div class="bg-green-100 text-green-600 w-12 h-12 rounded-lg flex items-center justify-center text-2xl font-bold">✅</div>
-                            <h3 class="text-2xl font-bold text-indigo-800">Naskah DekaBot</h3>
-                        </div>
-                        <div class="text-slate-700 mb-4 font-mono text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
-                            <strong>Adegan 1:</strong> [CLOSE UP] Seekor kucing oren bernama Oyen, memakai helm kecil, menatap skateboard dengan serius. 
-                            <br><strong>Adegan 2:</strong> [MEDIUM SHOT] Oyen mendorong skateboard dengan kaki belakangnya, meluncur pelan di trotoar... (dan seterusnya)
-                        </div>
-                        <div class="bg-indigo-50 p-4 rounded-lg text-slate-600 text-sm space-y-3">
-                            <p><strong class="font-semibold text-green-600">Hasilnya?</strong> Cerita yang terstruktur dan sinematik.</p>
-                            <p><strong class="font-semibold text-green-600">Karakter?</strong> Konsisten dari awal sampai akhir.</p>
-                            <p><strong class="font-semibold text-green-600">Sinematik?</strong> Dijamin! Lengkap dengan angle kamera.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="bonus" class="py-20 bg-white">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8 reveal-on-scroll">
-                <div class="text-center mb-12">
-                    <h2 class="text-3xl sm:text-4xl font-bold text-slate-900">🎁 Bukan Cuma Naskah, Amunisi Lainnya Lengkap!</h2>
-                    <p class="mt-4 text-lg text-slate-600 max-w-xl mx-auto">Kami kasih semua alat yang kamu butuhkan untuk jadi master konten.</p>
-                </div>
-                <div class="max-w-4xl mx-auto grid md:grid-cols-2 gap-x-10 gap-y-6">
-                    <div class="flex items-start space-x-4"><i class="fa-solid fa-brain text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">DekaAI Siap Bantu:</strong> Bingung cari ide atau referensi? Tanya aja DekaAI, asisten cerdas yang siap kasih inspirasi kapanpun kamu butuh.</p></div>
-                    <div class="flex items-start space-x-4"><i class="fa-solid fa-lightbulb text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Auto Prompt Video Konten:</strong> Mati gaya? Dapatkan ide & skrip konten otomatis.</p></div>
-                    <div class="flex items-start space-x-4"><i class="fa-solid fa-music text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Generator Lirik Lagu + Cover:</strong> Bikin lagu dan sampulnya sekalian.</p></div>
-                    <div class="flex items-start space-x-4"><i class="fa-solid fa-hashtag text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Generator Deskripsi & Hashtag:</strong> Biar postinganmu gampang viral.</p></div>
-                    <div class="flex items-start space-x-4"><i class="fa-solid fa-book-open text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Auto Novel & Jurnal Ilmiah:</strong> Buat penulis yang butuh inspirasi kilat.</p></div>
-                    <div class="flex items-start space-x-4"><i class="fa-solid fa-infinity text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Trik Unlimited Video di Veo3:</strong> Rahasia produksi video tak terbatas tanpa boncos.</p></div>
-                </div>
-            </div>
-        </section>
-
-        <section id="target-audience" class="py-20 bg-slate-50">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16 reveal-on-scroll">
-                    <h2 class="text-3xl sm:text-4xl font-bold text-slate-900">💡 Cocok Banget Buat Kamu yang...</h2>
-                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Siapapun kamu, DekaBot punya jawaban untuk setiap tantangan kreatif yang kamu hadapi.</p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden reveal-on-scroll hover:shadow-xl transition-all duration-300 border border-slate-200">
-                        <div class="p-6 bg-slate-50/50 flex items-center gap-4 border-b border-slate-200">
-                            <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-bullhorn text-2xl"></i></div>
-                            <h3 class="text-xl font-bold text-slate-800">Affiliate & Dropshipper</h3>
-                        </div>
-                        <div class="p-6 space-y-4">
-                            <div>
-                                <h4 class="font-semibold text-red-600 flex items-center gap-2"><i class="fa-solid fa-circle-xmark w-5 text-center"></i>Tantanganmu</h4>
-                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Mau review produk tapi gak ada sampelnya? Takut video promosimu gitu-gitu aja dan gak dilirik calon pembeli?</p>
-                            </div>
-                            <hr class="border-slate-100">
-                            <div>
-                                <h4 class="font-semibold text-green-600 flex items-center gap-2"><i class="fa-solid fa-circle-check w-5 text-center"></i>Solusi DekaBot</h4>
-                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">DekaBot bantu bikin naskah iklan profesional tanpa perlu pegang barangnya. Ceritakan keunggulan produk seolah kamu ahlinya, konversi dijamin naik!</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden reveal-on-scroll hover:shadow-xl transition-all duration-300 border border-slate-200" style="transition-delay: 100ms;">
-                        <div class="p-6 bg-slate-50/50 flex items-center gap-4 border-b border-slate-200">
-                            <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-store text-2xl"></i></div>
-                            <h3 class="text-xl font-bold text-slate-800">Pemilik UMKM & Toko Online</h3>
-                        </div>
-                        <div class="p-6 space-y-4">
-                            <div>
-                                <h4 class="font-semibold text-red-600 flex items-center gap-2"><i class="fa-solid fa-circle-xmark w-5 text-center"></i>Tantanganmu</h4>
-                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Produk udah bagus, tapi bingung cara promosinya di medsos? Biaya hire videographer mahal, bikin sendiri hasilnya kurang maksimal.</p>
-                            </div>
-                            <hr class="border-slate-100">
-                            <div>
-                                <h4 class="font-semibold text-green-600 flex items-center gap-2"><i class="fa-solid fa-circle-check w-5 text-center"></i>Solusi DekaBot</h4>
-                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Buat puluhan naskah video promosi produkmu dengan mudah. Dari video unboxing sinematik sampai iklan pendek yang viral, semua bisa dibuat dalam hitungan menit.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden reveal-on-scroll hover:shadow-xl transition-all duration-300 border border-slate-200" style="transition-delay: 200ms;">
-                         <div class="p-6 bg-slate-50/50 flex items-center gap-4 border-b border-slate-200">
-                            <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-chalkboard-user text-2xl"></i></div>
-                            <h3 class="text-xl font-bold text-slate-800">Penyedia Jasa & Kursus</h3>
-                        </div>
-                        <div class="p-6 space-y-4">
-                            <div>
-                                <h4 class="font-semibold text-red-600 flex items-center gap-2"><i class="fa-solid fa-circle-xmark w-5 text-center"></i>Tantanganmu</h4>
-                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Susah menjelaskan manfaat jasamu lewat tulisan? Ingin membuat video edukasi atau profil yang menarik tapi terbatas ide dan waktu?</p>
-                            </div>
-                             <hr class="border-slate-100">
-                            <div>
-                                <h4 class="font-semibold text-green-600 flex items-center gap-2"><i class="fa-solid fa-circle-check w-5 text-center"></i>Solusi DekaBot</h4>
-                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Ubah penjelasan kompleks jadi cerita video yang mudah dipahami. Buat naskah video testimoni, profil, atau materi pembelajaran yang engaging dan profesional.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden reveal-on-scroll hover:shadow-xl transition-all duration-300 border border-slate-200" style="transition-delay: 300ms;">
-                        <div class="p-6 bg-slate-50/50 flex items-center gap-4 border-b border-slate-200">
-                            <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-clapperboard text-2xl"></i></div>
-                            <h3 class="text-xl font-bold text-slate-800">Kreator, Storyteller, Musisi</h3>
-                        </div>
-                        <div class="p-6 space-y-4">
-                           <div>
-                                <h4 class="font-semibold text-red-600 flex items-center gap-2"><i class="fa-solid fa-circle-xmark w-5 text-center"></i>Tantanganmu</h4>
-                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Writer's block melanda? Ide cerita numpuk di kepala tapi susah diwujudkan jadi naskah yang runut dan sinematik?</p>
-                            </div>
-                             <hr class="border-slate-100">
-                            <div>
-                                <h4 class="font-semibold text-green-600 flex items-center gap-2"><i class="fa-solid fa-circle-check w-5 text-center"></i>Solusi DekaBot</h4>
-                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">DekaBot adalah partner brainstorming-mu. Kembangkan ide cerita jadi film pendek, video lirik, atau konten berseri dengan karakter yang konsisten dan alur yang memikat.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="harga" class="py-20 bg-slate-50">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-12 reveal-on-scroll">
-                    <h2 class="text-3xl sm:text-4xl font-black tracking-tighter text-slate-900">🔥 Jangan Sampai Kelewatan! Diskon Spesial Segera Berakhir</h2>
-                    <p class="mt-4 text-lg text-slate-600 max-w-xl mx-auto">Pilih paket yang paling pas buatmu sekarang juga. Lebih lama, lebih hemat!</p>
-                </div>
-                
-                <div class="max-w-md mx-auto bg-slate-800 text-white rounded-2xl p-6 mb-16 text-center shadow-lg reveal-on-scroll">
-                    <h4 class="text-lg font-semibold tracking-wider uppercase text-amber-300">Promo Berakhir Dalam</h4>
-                    <div id="countdown-timer" class="text-4xl sm:text-5xl font-mono font-bold mt-2 flex justify-center items-center space-x-4">
-                        <div><span id="hours">00</span><span class="block text-xs font-sans font-normal tracking-normal normal-case text-slate-400">Jam</span></div>
-                        <div class="text-4xl sm:text-5xl">:</div>
-                        <div><span id="minutes">00</span><span class="block text-xs font-sans font-normal tracking-normal normal-case text-slate-400">Menit</span></div>
-                        <div class="text-4xl sm:text-5xl">:</div>
-                        <div><span id="seconds">00</span><span class="block text-xs font-sans font-normal tracking-normal normal-case text-slate-400">Detik</span></div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto items-end">
-                    <div class="relative bg-white border border-slate-200 rounded-2xl p-8 text-center flex flex-col h-full transform hover:-translate-y-2 transition-transform duration-300 reveal-on-scroll">
-                        <div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
-                            <span class="bg-slate-700 text-white text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full shadow-lg">Paket Standar</span>
-                        </div>
-                        <p class="pt-4 text-sm text-slate-500">Akses 3 Bulan</p>
-                        <span class="mt-2 bg-amber-200 text-amber-800 text-sm font-bold px-3 py-1 rounded-full self-center">HEMAT 50%</span>
-                        <p class="mt-4 text-4xl font-bold text-slate-900">Rp110.000</p>
-                        <del class="text-lg font-normal text-slate-400">Rp220.000</del>
-                        <ul class="mt-8 space-y-3 text-left text-slate-600 flex-grow">
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Semua Fitur Pro</li>
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Grup WA Eksklusif</li>
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Update Fitur Gratis</li>
-                        </ul>
-                        <a href="https://wa.me/6285966760134?text=Halo%2C%20saya%20tertarik%20dengan%20Paket%20Standar%20(3%20Bulan)%20seharga%20Rp110.000%20untuk%20DekaBot." target="_blank" rel="noopener noreferrer" class="mt-8 block w-full bg-slate-100 border border-slate-300 text-slate-700 font-semibold py-3 rounded-lg hover:bg-slate-200 transition-colors">Pilih Paket</a>
-                    </div>
-
-                    <div class="relative bg-indigo-50 border border-indigo-200 rounded-2xl p-8 text-center flex flex-col h-full transform hover:-translate-y-2 transition-transform duration-300 reveal-on-scroll" style="transition-delay: 150ms;">
-                        <div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
-                            <span class="bg-indigo-600 text-white text-sm font-bold uppercase tracking-wider px-5 py-2 rounded-full shadow-lg">Paling Laris</span>
-                        </div>
-                        <p class="pt-4 text-sm text-slate-500">Akses 6 Bulan</p>
-                        <span class="mt-2 bg-amber-200 text-amber-800 text-sm font-bold px-3 py-1 rounded-full self-center">HEMAT 57%</span>
-                        <p class="mt-4 text-4xl font-bold text-slate-900">Rp190.000</p>
-                        <del class="text-lg font-normal text-slate-400">Rp440.000</del>
-                         <ul class="mt-8 space-y-3 text-left text-slate-600 flex-grow">
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Semua Fitur Pro</li>
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Grup WA Eksklusif</li>
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Update Fitur Gratis</li>
-                        </ul>
-                        <a href="https://wa.me/6285966760134?text=Halo%2C%20saya%20tertarik%20dengan%20Paket%20Paling%20Laris%20(6%20Bulan)%20seharga%20Rp190.000%20untuk%20DekaBot." target="_blank" rel="noopener noreferrer" class="mt-8 block w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-md">Pilih Paket</a>
-                    </div>
-                    
-                    <div class="relative bg-gradient-to-br from-slate-900 to-indigo-700 text-white rounded-3xl p-8 text-center flex flex-col h-full shadow-2xl shadow-indigo-300 lg:scale-110 reveal-on-scroll" style="transition-delay: 300ms;">
-                        <div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
-                            <span class="bg-amber-400 text-slate-900 text-sm font-bold uppercase tracking-wider px-5 py-2 rounded-full shadow-lg">Paling Cuan</span>
-                        </div>
-                        <p class="pt-4 text-sm text-indigo-300">Akses 12 Bulan</p>
-                        <span class="mt-2 bg-white/20 text-white text-sm font-bold px-3 py-1 rounded-full self-center">HEMAT 60%</span>
-                        <p class="mt-4 text-5xl font-bold">Rp355.000</p>
-                        <del class="text-lg font-normal text-indigo-200">Rp880.000</del>
-                         <ul class="mt-8 space-y-3 text-left text-indigo-200 flex-grow">
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-amber-400 mr-3"></i>Semua Fitur Pro</li>
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-amber-400 mr-3"></i>Grup WA Eksklusif</li>
-                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-amber-400 mr-3"></i>Update Fitur Gratis</li>
-                            <li class="flex items-center font-semibold"><i class="fa-solid fa-star text-amber-400 mr-3"></i>Prioritas Dukungan</li>
-                        </ul>
-                        <a href="https://wa.me/6285966760134?text=Halo%2C%20saya%20tertarik%20dengan%20Paket%20Paling%20Cuan%20(12%20Bulan)%20seharga%20Rp355.000%20untuk%20DekaBot." target="_blank" rel="noopener noreferrer" class="mt-8 block w-full bg-white text-indigo-700 font-bold py-4 rounded-lg hover:bg-indigo-100 transition-colors shadow-lg">Pilih Paket Terbaik</a>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="testimonials" class="py-20 bg-white">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16 reveal-on-scroll">
-                    <h2 class="text-3xl sm:text-4xl font-black tracking-tighter text-slate-900">💬 Kata Mereka yang Sudah Pakai DekaBot</h2>
-                    <p class="mt-4 text-lg text-slate-600 max-w-xl mx-auto">Bukan cuma kami yang bilang DekaBot keren. Lihat sendiri apa kata para member kami.</p>
-                </div>
-                <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <div class="bg-slate-50 p-8 rounded-2xl shadow-lg border border-slate-100 flex flex-col h-full reveal-on-scroll transition-all duration-300 hover:shadow-xl hover:-translate-y-2">
-                        <div class="flex-grow">
-                            <div class="flex items-center mb-4 text-amber-400"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                            <p class="text-slate-600 italic">"Gila, ini game-changer banget! Dulu mikirin konsep iklan aja bisa berhari-hari. Sekarang, tinggal klik, naskah sinematik jadi. Omzet toko saya naik 30% bulan lalu!"</p>
-                        </div>
-                        <div class="mt-6 pt-6 border-t border-slate-200 flex items-center">
-                            <img class="h-12 w-12 rounded-full object-cover" src="https://i.pravatar.cc/150?img=1" alt="Budi Santoso">
-                            <div class="ml-4">
-                                <p class="font-semibold text-slate-800">Budi Santoso</p>
-                                <p class="text-sm text-slate-500">Pemilik UMKM Fashion</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-slate-50 p-8 rounded-2xl shadow-lg border border-slate-100 flex flex-col h-full reveal-on-scroll transition-all duration-300 hover:shadow-xl hover:-translate-y-2" style="transition-delay: 150ms;">
-                        <div class="flex-grow">
-                            <div class="flex items-center mb-4 text-amber-400"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                            <p class="text-slate-600 italic">"Sebagai affiliate, DekaBot ini penyelamat. Gak perlu beli produknya buat bikin video review yang meyakinkan. Cukup pakai naskah dari sini, hasilnya pro banget. Komisi ngalir terus!"</p>
-                        </div>
-                        <div class="mt-6 pt-6 border-t border-slate-200 flex items-center">
-                            <img class="h-12 w-12 rounded-full object-cover" src="https://i.pravatar.cc/150?img=2" alt="Rina Wulandari">
-                            <div class="ml-4">
-                                <p class="font-semibold text-slate-800">Rina Wulandari</p>
-                                <p class="text-sm text-slate-500">Affiliate Marketer</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-slate-50 p-8 rounded-2xl shadow-lg border border-slate-100 flex flex-col h-full reveal-on-scroll transition-all duration-300 hover:shadow-xl hover:-translate-y-2" style="transition-delay: 300ms;">
-                        <div class="flex-grow">
-                            <div class="flex items-center mb-4 text-amber-400"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i></div>
-                            <p class="text-slate-600 italic">"Buat konten YouTube short sekarang jadi cepet banget. Biasanya sehari cuma bisa bikin 1 video, sekarang bisa buat stok naskah buat seminggu dalam sejam. Kualitasnya juga konsisten!"</p>
-                        </div>
-                        <div class="mt-6 pt-6 border-t border-slate-200 flex items-center">
-                            <img class="h-12 w-12 rounded-full object-cover" src="https://i.pravatar.cc/150?img=3" alt="Agung Prasetyo">
-                            <div class="ml-4">
-                                <p class="font-semibold text-slate-800">Agung Prasetyo</p>
-                                <p class="text-sm text-slate-500">YouTuber</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
-        <section class="bg-slate-900">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-10 text-center text-white reveal-on-scroll">
-                <h2 class="text-3xl sm:text-4xl font-bold">Udah Siap Naik Kelas?</h2>
-                <p class="mt-8 max-w-xl mx-auto text-lg text-slate-300">💡 Jangan biarkan waktu & biaya jadi penghalang kreativitasmu. Dengan DekaBot, bikin naskah video profesional & cerita keren jadi semudah main game.</p>
-                <div class="mt-10">
-                    <a href="https://santridigital.net/app/duniakreator/landingpage/" class="inline-block bg-white text-slate-900 font-semibold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-all duration-300 transform hover:scale-105">
-                        🎯 Coba DekaBot Sekarang & Rasakan Sendiri Kemudahannya!
-                    </a>
-                    <p class="mt-4 text-sm text-slate-400">📍 www.duniakreator.com</p>
-                </div>
-            </div>
-        </section>
+  flushList();
+  return <>{elements}</>;
+};
 
 
-        <footer class="bg-slate-900 text-slate-400">
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16">
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12">
-                    
-                    <div class="md:col-span-5 lg:col-span-5 text-center md:text-left">
-                        <a href="#" class="flex items-center justify-center md:justify-start space-x-2 mb-4">
-                            <img src="https://i.postimg.cc/7YhMT7Dc/duniakreator.png" alt="DekaBot Logo" class="h-8 w-auto" onerror="this.onerror=null;this.src='https://placehold.co/100x32/6366f1/white?text=DK';">
-                            <span class="font-bold text-xl text-white">DuniaKreator</span>
-                        </a>
-                        <p class="text-sm max-w-xs mx-auto md:mx-0">
-                            Platform yang membantu para kreator, UMKM, dan affiliate untuk mengubah ide brilian menjadi naskah video sinematik yang siap viral.
-                        </p>
-                    </div>
+const MarkdownRenderer: React.FC<{ text: string; messageIndex: number }> = ({ text, messageIndex }) => {
+    const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
 
-                    <div class="hidden md:block md:col-span-1 lg:col-span-2"></div>
-
-                    <div class="md:col-span-3 lg:col-span-2 text-center md:text-left">
-                        <h3 class="text-lg font-semibold text-white mb-4">Akses Cepat</h3>
-                        <nav class="flex flex-col space-y-2">
-                            <a href="#unggulan" class="hover:text-white transition-colors">Keunggulan</a>
-                            <a href="#harga" class="hover:text-white transition-colors">Harga</a>
-                            <a href="#testimonials" class="hover:text-white transition-colors">Testimoni</a>
-                            <a href="#hasil-karya" class="hover:text-white transition-colors">Hasil Karya</a>
-                        </nav>
-                    </div>
-                    
-                    <div class="md:col-span-3 lg:col-span-3 text-center md:text-left">
-                         <h3 class="text-lg font-semibold text-white mb-4">Ikuti Kami</h3>
-                         <div class="flex space-x-5 justify-center md:justify-start">
-                            <a href="https://www.instagram.com/duniakreator.official" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="text-slate-400 hover:text-white transition-colors"><i class="fa-brands fa-instagram fa-xl"></i></a>
-                            <a href="https://www.tiktok.com/@duniakreator.com" target="_blank" rel="noopener noreferrer" aria-label="TikTok" class="text-slate-400 hover:text-white transition-colors"><i class="fa-brands fa-tiktok fa-xl"></i></a>
-                            <a href="https://www.youtube.com/@duniakreator" target="_blank" rel="noopener noreferrer" aria-label="YouTube" class="text-slate-400 hover:text-white transition-colors"><i class="fa-brands fa-youtube fa-xl"></i></a>
-                         </div>
-                    </div>
-
-                </div>
-                <div class="pt-8 border-t border-slate-700 text-center text-sm">
-                    <p>© 2024 Dunia Kreator. Hak Cipta Dilindungi.</p>
-                </div>
-            </div>
-        </footer>
-    </div>
+    const handleCopy = (code: string, blockIndex: number) => {
+        navigator.clipboard.writeText(code);
+        setCopiedStates(prev => ({ ...prev, [`${messageIndex}-${blockIndex}`]: true }));
+        setTimeout(() => {
+            setCopiedStates(prev => ({ ...prev, [`${messageIndex}-${blockIndex}`]: false }));
+        }, 2000);
+    };
     
-    <div id="sticky-cta-footer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-xs sm:max-w-sm px-4 sm:px-0 md:hidden">
-        <a href="#harga" class="w-full flex items-center justify-center gap-2 bg-green-600 text-white font-semibold text-base px-5 py-3 rounded-full shadow-2xl shadow-green-500/30 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-300 transform hover:scale-105 animate-pulse-green">
-            <i class="fa-solid fa-rocket"></i>
-            <span>Daftar Sekarang</span>
-        </a>
-    </div>
+    const codeBlockRegex = /```(\w*)\n([\s\S]*?)\n```/g;
+    
+    const parts = [];
+    let lastIndex = 0;
+    let match;
 
-    <div id="videoModalOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4 transition-opacity duration-300">
-        <div id="videoModalContent" class="relative w-full max-w-4xl transition-all duration-300 scale-95 opacity-0">
-             <button id="closeVideoModal" type="button" class="absolute -top-2 -right-2 md:-top-4 md:-right-4 z-10 text-white bg-slate-800/70 hover:bg-slate-700 w-10 h-10 rounded-full text-2xl leading-none flex items-center justify-center">×</button>
-             <div class="aspect-video w-full bg-black rounded-lg overflow-hidden shadow-2xl">
-                 <iframe id="videoPlayer" class="w-full h-full" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-             </div>
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
+        }
+        parts.push({ type: 'code', language: match[1], content: match[2] });
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+        parts.push({ type: 'text', content: text.substring(lastIndex) });
+    }
+
+    return (
+        <div className="prose prose-sm prose-invert max-w-none leading-relaxed">
+            {parts.map((part, index) => {
+                if (part.type === 'code') {
+                    const blockKey = `${messageIndex}-${index}`;
+                    return (
+                        <CodeBlock
+                            key={blockKey}
+                            language={part.language}
+                            code={part.content}
+                            onCopy={() => handleCopy(part.content, index)}
+                            copied={!!copiedStates[blockKey]}
+                        />
+                    );
+                }
+                return <div key={index}>{renderTextWithMarkdown(part.content)}</div>;
+            })}
         </div>
-    </div>
+    );
+};
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- DOM ELEMENTS ---
-            const videoModalOverlay = document.getElementById('videoModalOverlay');
-            const videoModalContent = document.getElementById('videoModalContent');
-            const closeVideoModal = document.getElementById('closeVideoModal');
-            const videoPlayer = document.getElementById('videoPlayer');
-            const videoThumbnailCards = document.querySelectorAll('.video-thumbnail-card');
 
-            const mobileMenuButton = document.getElementById('mobile-menu-button');
-            const mobileMenu = document.getElementById('mobile-menu');
-            const burgerIcon = document.getElementById('burger-icon');
-            const mobileMenuLinks = document.querySelectorAll('.mobile-menu-link');
+export const DekaAiModal: React.FC<DekaAiModalProps> = ({ isOpen, onClose }) => {
+    const [chat, setChat] = useState<Chat | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [input, setInput] = useState('');
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
+    
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [chatHistory, setChatHistory] = useState<DekaAiHistory[]>([]);
+    const [activeChatId, setActiveChatId] = useState<string | null>(null);
+    const [editingChat, setEditingChat] = useState<{id: string, title: string} | null>(null);
+    const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
 
-            // --- FUNCTIONS ---
-            function showVideoModal(youtubeId) {
-                videoPlayer.src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`;
-                videoModalOverlay.classList.remove('hidden');
-                videoModalOverlay.classList.add('flex');
-                setTimeout(() => {
-                    videoModalOverlay.classList.add('opacity-100');
-                    videoModalContent.classList.remove('scale-95', 'opacity-0');
-                }, 10);
-            }
+    // Custom Chatbot States
+    const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+    const [isCustomBotModalOpen, setIsCustomBotModalOpen] = useState(false);
+    const [newBotName, setNewBotName] = useState('');
+    const [newBotInstruction, setNewBotInstruction] = useState('');
+    const [newBotInfo, setNewBotInfo] = useState('');
+    
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-            function hideVideoModal() {
-                videoModalOverlay.classList.remove('opacity-100');
-                videoModalContent.classList.add('scale-95', 'opacity-0');
-                setTimeout(() => {
-                    videoModalOverlay.classList.add('hidden');
-                    videoModalOverlay.classList.remove('flex');
-                    videoPlayer.src = ''; // Stop video playback
-                }, 300);
-            }
+    const CUSTOM_TEMPLATES_KEY = 'duniakreator-custom-chatbots';
 
-            function setupScrollAnimations() {
-                const revealElements = document.querySelectorAll('.reveal-on-scroll');
-                if (!revealElements.length) return;
+    const getCustomChatbotTemplates = (): CustomTemplate[] => {
+      try {
+        const stored = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    };
 
-                const observer = new IntersectionObserver((entries, observer) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            entry.target.classList.add('is-visible');
-                            observer.unobserve(entry.target);
-                        }
-                    });
-                }, {
-                    threshold: 0.1
-                });
+    const saveCustomChatbotTemplates = (templates: CustomTemplate[]) => {
+      localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+    };
 
-                revealElements.forEach(element => {
-                    observer.observe(element);
-                });
-            }
+    const combinedTemplates = {
+      ...PROMPT_TEMPLATES,
+      ...customTemplates.reduce((acc, t) => {
+        acc[t.id] = { label: t.label, prompt: t.prompt };
+        return acc;
+      }, {} as Record<string, { label: string; prompt: string }>)
+    };
+    
+    const initializeChatInstance = useCallback((templateKey: string, history: Message[]): Chat | null => {
+        try {
+            const apiKey = getTextApiKey();
+            const ai = new GoogleGenAI({ apiKey });
+            const template = combinedTemplates[templateKey] || combinedTemplates['default'];
             
-            function setupCountdownTimer() {
-                const hoursEl = document.getElementById('hours');
-                const minutesEl = document.getElementById('minutes');
-                const secondsEl = document.getElementById('seconds');
-                const timerContainer = document.getElementById('countdown-timer');
-
-                if (!hoursEl || !minutesEl || !secondsEl || !timerContainer) return;
-
-                let countdownInterval;
-
-                function startTimer() {
-                    let endTime = localStorage.getItem('countdownEndTime');
-
-                    if (!endTime || new Date().getTime() > parseInt(endTime)) {
-                        const randomHours = Math.floor(Math.random() * (14 - 7 + 1)) + 7; // 7 to 14 hours
-                        const randomMinutes = Math.floor(Math.random() * 59); // 0 to 59 minutes
-                        const duration = (randomHours * 60 * 60 * 1000) + (randomMinutes * 60 * 1000);
-                        endTime = new Date().getTime() + duration;
-                        localStorage.setItem('countdownEndTime', endTime);
+            const formattedHistory = history.map(msg => {
+                const newParts = msg.parts.map(part => {
+                    if (part.imageUrl && part.imageUrl.startsWith('data:')) {
+                        const [header, data] = part.imageUrl.split(',');
+                        const mimeMatch = header.match(/:(.*?);/);
+                        if (mimeMatch && data) {
+                            return { inlineData: { mimeType: mimeMatch[1], data } };
+                        }
                     }
+                    if (part.text) {
+                        return { text: part.text };
+                    }
+                    return null; 
+                }).filter(Boolean) as ({text: string} | {inlineData: {mimeType: string, data: string}})[];
 
-                    countdownInterval = setInterval(() => {
-                        const now = new Date().getTime();
-                        const distance = parseInt(endTime) - now;
-
-                        if (distance < 0) {
-                            clearInterval(countdownInterval);
-                            timerContainer.innerHTML = '<span class="text-2xl font-bold">Promo Telah Berakhir!</span>';
-                            return;
-                        }
-
-                        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-                        hoursEl.textContent = String(hours).padStart(2, '0');
-                        minutesEl.textContent = String(minutes).padStart(2, '0');
-                        secondsEl.textContent = String(seconds).padStart(2, '0');
-
-                    }, 1000);
-                }
-
-                startTimer();
-            }
-
-            function toggleMobileMenu() {
-                if (!mobileMenuButton || !mobileMenu || !burgerIcon) return;
-                const isExpanded = mobileMenuButton.getAttribute('aria-expanded') === 'true';
-                mobileMenuButton.setAttribute('aria-expanded', !isExpanded);
-                mobileMenu.classList.toggle('hidden');
-                
-                // Prevent body scroll when menu is open
-                document.body.style.overflow = mobileMenu.classList.contains('hidden') ? '' : 'hidden';
-                
-                // Animate icon
-                burgerIcon.classList.toggle('rotate-90');
-                if (!isExpanded) {
-                    burgerIcon.classList.remove('fa-bars');
-                    burgerIcon.classList.add('fa-xmark');
-                } else {
-                    burgerIcon.classList.remove('fa-xmark');
-                    burgerIcon.classList.add('fa-bars');
-                }
-            }
-
-            function setupMobileMenu() {
-                if (!mobileMenuButton || !mobileMenu || !burgerIcon) return;
-                
-                mobileMenuButton.addEventListener('click', toggleMobileMenu);
-
-                mobileMenuLinks.forEach(link => {
-                    link.addEventListener('click', () => {
-                        if (!mobileMenu.classList.contains('hidden')) {
-                            toggleMobileMenu();
-                        }
-                    });
-                });
-            }
-
-            // --- EVENT LISTENERS ---
-            videoThumbnailCards.forEach(card => {
-                card.addEventListener('click', () => {
-                    const youtubeId = card.dataset.youtubeId;
-                    if (youtubeId) showVideoModal(youtubeId);
-                });
+                return { role: msg.role, parts: newParts };
             });
 
-            closeVideoModal.addEventListener('click', hideVideoModal);
-            videoModalOverlay.addEventListener('click', (e) => {
-                if (e.target === videoModalOverlay) hideVideoModal();
+            const newChat = ai.chats.create({
+                model: 'gemini-2.5-flash',
+                config: { systemInstruction: template.prompt },
+                history: formattedHistory
             });
+            setChat(newChat);
+            return newChat;
+        } catch (e) {
+            console.error(e);
+            setError(e instanceof Error ? e.message : 'Gagal memulai sesi chat.');
+            setChat(null);
+            return null;
+        }
+    }, [customTemplates]);
+
+    const startInitialConversation = async (chatInstance: Chat, chatData: DekaAiHistory) => {
+        setIsLoading(true);
+        setMessages([{ role: 'model', parts: [{ text: '' }] }]); // UI typing indicator
+    
+        try {
+            const stream = await chatInstance.sendMessageStream({ message: "Sapa pengguna dengan ramah dan mulai percakapan sesuai dengan system prompt." });
+    
+            let fullResponseText = '';
+            for await (const chunk of stream) {
+                fullResponseText += chunk.text;
+                setMessages([{ role: 'model', parts: [{ text: fullResponseText }] }]);
+            }
+    
+            const modelMessage: Message = { role: 'model', parts: [{ text: fullResponseText }] };
+            const newTitle = `Obrolan: ${combinedTemplates[chatData.templateKey]?.label || 'Umum'}`;
+    
+            const finalChatState: DekaAiHistory = {
+                ...chatData,
+                title: newTitle,
+                messages: [modelMessage]
+            };
+    
+            await dbSaveDekaAiChat(finalChatState);
+            setChatHistory(prev => [finalChatState, ...prev.filter(c => c.id !== chatData.id)]);
+    
+        } catch (e) {
+            console.error("Initial conversation failed:", e);
+            const errorMessage = e instanceof Error ? e.message : "Gagal memulai percakapan";
+            setMessages([{ role: 'model', parts: [{ text: `Error: ${errorMessage}` }] }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const createNewChat = async (templateKey: string = 'default') => {
+        const newChatData: DekaAiHistory = {
+            id: `chat-${Date.now()}`,
+            title: "Memulai obrolan...",
+            messages: [],
+            createdAt: new Date().toISOString(),
+            templateKey: templateKey
+        };
+        
+        setActiveChatId(newChatData.id);
+        setMessages([]);
+        setSelectedTemplate(templateKey);
+        setChatHistory(prev => [newChatData, ...prev]);
+        
+        const newChatInstance = initializeChatInstance(templateKey, []);
+        
+        if (newChatInstance) {
+            await startInitialConversation(newChatInstance, newChatData);
+        }
+    };
+
+    useEffect(() => {
+        const loadData = async () => {
+            const customBots = getCustomChatbotTemplates();
+            setCustomTemplates(customBots);
             
-            window.addEventListener('scroll', () => {
-                const header = document.getElementById('header');
-                if (window.scrollY > 20) {
-                    header.classList.add('bg-white/80', 'backdrop-blur-sm', 'shadow-sm');
-                } else {
-                    header.classList.remove('bg-white/80', 'backdrop-blur-sm', 'shadow-sm');
-                }
-            });
+            const history = await dbGetAllDekaAiChats();
+            if (history.length > 0) {
+                setChatHistory(history);
+                const latestChat = history[0];
+                setActiveChatId(latestChat.id);
+                setMessages(latestChat.messages);
+                setSelectedTemplate(latestChat.templateKey);
+                initializeChatInstance(latestChat.templateKey, latestChat.messages);
+            } else {
+                await createNewChat(); 
+            }
+        };
+        if (isOpen) {
+            loadData();
+        }
+    }, [isOpen]);
 
-            // --- INITIALIZE ---
-            setupMobileMenu();
-            setupScrollAnimations();
-            setupCountdownTimer();
-        });
-    </script>
-</body>
-</html>
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, isLoading]);
+
+    const handleTemplateChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newTemplateKey = e.target.value;
+        await createNewChat(newTemplateKey);
+    };
+
+    const handleSendMessage = async () => {
+        const currentChatId = activeChatId;
+        if ((!input.trim() && !imageFile) || !chat || !currentChatId) return;
+
+        // 1. Prepare user message & capture state
+        const userMessageParts: MessagePart[] = [];
+        if (input.trim()) userMessageParts.push({ text: input });
+        if (previewUrl) userMessageParts.push({ imageUrl: previewUrl }); // This is now a data URL
+        
+        const userMessage: Message = { role: 'user', parts: userMessageParts };
+        const typingIndicator: Message = { role: 'model', parts: [{ text: '' }] };
+        const currentInput = input;
+        const currentImageFile = imageFile;
+
+        // 2. Optimistic UI update
+        setMessages(prev => [...prev, userMessage, typingIndicator]);
+        setInput('');
+        setImageFile(null);
+        setPreviewUrl(null);
+        setIsLoading(true);
+        setError(null);
+    
+        // 3. Prepare prompt parts for Gemini API
+        const promptParts: (string | { inlineData: { mimeType: string; data: string } })[] = [];
+        if (currentInput.trim()) promptParts.push(currentInput.trim());
+        if (currentImageFile) {
+            try {
+                const base64Image = await fileToBase64(currentImageFile);
+                promptParts.push({ inlineData: { mimeType: currentImageFile.type, data: base64Image } });
+            } catch (e) {
+                 const errorText = "Gagal memproses gambar.";
+                 setMessages(prev => prev.slice(0, -1).concat([{ role: 'model', parts: [{ text: errorText }] }]));
+                 setIsLoading(false);
+                 return;
+            }
+        }
+        
+        // 4. Stream response from AI
+        try {
+            const stream = await chat.sendMessageStream({ message: promptParts });
+            let fullResponseText = '';
+            for await (const chunk of stream) {
+                fullResponseText += chunk.text;
+                setMessages(prev => {
+                    const newMessages = [...prev];
+                    if (newMessages.length > 0) {
+                        newMessages[newMessages.length - 1] = { role: 'model', parts: [{ text: fullResponseText }] };
+                    }
+                    return newMessages;
+                });
+            }
+    
+            // 5. Once streaming is complete, update database and history state
+            const modelMessage: Message = { role: 'model', parts: [{ text: fullResponseText }] };
+            
+            const currentChat = chatHistory.find(c => c.id === currentChatId);
+            if (currentChat) {
+                let newTitle = currentChat.title;
+                const isFirstUserMessage = currentChat.messages.length <= 1;
+
+                if (isFirstUserMessage && currentInput.trim() && (currentChat.title.startsWith("Memulai") || currentChat.title.startsWith("Obrolan Baru"))) {
+                    try {
+                        const titleAi = new GoogleGenAI({apiKey: getTextApiKey()});
+                        const titleRes = await titleAi.models.generateContent({model: 'gemini-2.5-flash', contents: `Buat judul singkat (maksimal 5 kata) dalam Bahasa Indonesia untuk percakapan yang dimulai dengan: "${currentInput.trim()}"`});
+                        newTitle = titleRes.text.trim().replace(/"/g, '') || `Obrolan: ${currentInput.substring(0, 20)}`;
+                    } catch (titleError) {
+                        console.error("Gagal membuat judul obrolan:", titleError);
+                        newTitle = `Obrolan: ${currentInput.substring(0, 20)}`;
+                    }
+                }
+                
+                const finalChatState: DekaAiHistory = {
+                    ...currentChat,
+                    title: newTitle,
+                    messages: [...currentChat.messages, userMessage, modelMessage]
+                };
+    
+                await dbSaveDekaAiChat(finalChatState);
+                setChatHistory(prev => {
+                    const otherChats = prev.filter(c => c.id !== currentChatId);
+                    return [finalChatState, ...otherChats];
+                });
+            }
+    
+        } catch (e) {
+            console.error(e);
+            const errorMessage = e instanceof Error ? e.message : "Terjadi kesalahan";
+            const errorText = `Maaf, terjadi kesalahan: ${errorMessage}`;
+            const errorModelMessage: Message = { role: 'model', parts: [{ text: errorText }] };
+            setMessages(prev => prev.slice(0, -1).concat([errorModelMessage]));
+            
+            const currentChat = chatHistory.find(c => c.id === currentChatId);
+            if (currentChat) {
+                const errorChatState = { ...currentChat, messages: [...currentChat.messages, userMessage, errorModelMessage] };
+                await dbSaveDekaAiChat(errorChatState);
+                setChatHistory(prev => prev.map(c => c.id === currentChatId ? errorChatState : c));
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const handleSelectChat = (chatId: string) => {
+        const selected = chatHistory.find(c => c.id === chatId);
+        if (selected) {
+            setActiveChatId(selected.id);
+            setMessages(selected.messages);
+            setSelectedTemplate(selected.templateKey);
+            initializeChatInstance(selected.templateKey, selected.messages);
+            setIsMenuOpen(false);
+        }
+    };
+    
+    const handleDeleteChat = async (chatId: string) => {
+        if (window.confirm("Yakin ingin menghapus obrolan ini?")) {
+            await dbDeleteDekaAiChat(chatId);
+            const updatedHistory = chatHistory.filter(c => c.id !== chatId);
+            setChatHistory(updatedHistory);
+            if (activeChatId === chatId) {
+                if (updatedHistory.length > 0) {
+                    handleSelectChat(updatedHistory[0].id);
+                } else {
+                    await createNewChat();
+                }
+            }
+        }
+    };
+
+    const handleUpdateChatTitle = async () => {
+        if (!editingChat || !editingChat.title.trim()) return;
+        const chatToUpdate = chatHistory.find(c => c.id === editingChat.id);
+        if (chatToUpdate) {
+            chatToUpdate.title = editingChat.title.trim();
+            await dbSaveDekaAiChat(chatToUpdate);
+            setChatHistory(prev => prev.map(c => c.id === editingChat.id ? chatToUpdate : c));
+        }
+        setEditingChat(null);
+    };
+
+    const handleCopyMessage = (msg: Message, index: number) => {
+        const textToCopy = msg.parts.map(p => p.text).filter(Boolean).join('\n\n');
+        if (textToCopy) {
+            navigator.clipboard.writeText(textToCopy);
+            setCopiedMessageId(index);
+            setTimeout(() => setCopiedMessageId(null), 2000);
+        }
+    };
+    
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) { 
+            setImageFile(file); 
+            try {
+                const dataUrl = await fileToDataUrl(file);
+                setPreviewUrl(dataUrl);
+            } catch (err) {
+                setError("Gagal memuat pratinjau gambar.");
+                setImageFile(null);
+                setPreviewUrl(null);
+            }
+        }
+    };
+
+    const handleClearAllChats = async () => {
+        if (window.confirm("Apakah Anda yakin ingin menghapus SEMUA obrolan? Tindakan ini tidak dapat diurungkan.")) {
+            await dbClearDekaAiHistory();
+            setChatHistory([]);
+            await createNewChat();
+        }
+    };
+
+    const handleSaveCustomBot = () => {
+        if (!newBotName.trim() || !newBotInstruction.trim()) {
+            alert("Nama chatbot dan perintah khusus tidak boleh kosong.");
+            return;
+        }
+        const fullPrompt = `${newBotInstruction}\n\n--- INFORMASI TAMBAHAN ---\n${newBotInfo}`;
+        const newTemplate: CustomTemplate = {
+            id: `custom-${Date.now()}`,
+            label: newBotName,
+            prompt: fullPrompt,
+        };
+        const updatedTemplates = [...customTemplates, newTemplate];
+        saveCustomChatbotTemplates(updatedTemplates);
+        setCustomTemplates(updatedTemplates);
+        setNewBotName('');
+        setNewBotInstruction('');
+        setNewBotInfo('');
+        setIsCustomBotModalOpen(false);
+    };
+    
+     useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        }
+    }, [input]);
+
+    if (!isOpen) return null;
+
+    return (
+        <>
+            <div className="fixed inset-0 bg-black/70 flex items-end justify-center sm:items-center z-50 p-0 sm:p-4" onClick={onClose}>
+                <div 
+                    className="bg-brand-bg-light w-full h-full sm:h-[90vh] sm:max-w-2xl rounded-t-2xl sm:rounded-2xl border border-brand-border shadow-2xl flex flex-col animate-fade-in relative overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Chat History Sidebar */}
+                    <div className={`absolute top-0 left-0 h-full w-64 bg-brand-bg-dark border-r border-brand-border z-20 transform transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                        <div className="p-2 flex flex-col h-full">
+                            <button onClick={() => createNewChat(selectedTemplate)} className="w-full text-left p-2 mb-2 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-lg font-semibold">
+                                + Obrolan Baru
+                            </button>
+                            <div className="flex-grow overflow-y-auto space-y-1 pr-1">
+                                {chatHistory.map(chatItem => (
+                                    <div key={chatItem.id} className={`group flex items-center w-full rounded-md pr-2 ${activeChatId === chatItem.id ? 'bg-brand-bg-light' : 'hover:bg-brand-bg-light/50'}`}>
+                                        {editingChat?.id === chatItem.id ? (
+                                            <input
+                                                type="text"
+                                                value={editingChat.title}
+                                                onChange={(e) => setEditingChat({ ...editingChat, title: e.target.value })}
+                                                onBlur={handleUpdateChatTitle}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleUpdateChatTitle()}
+                                                autoFocus
+                                                className="flex-grow p-2 text-sm bg-brand-bg-light border border-brand-blue rounded-md"
+                                            />
+                                        ) : (
+                                            <>
+                                                <button onClick={() => handleSelectChat(chatItem.id)} className={`flex-grow text-left p-2 text-sm rounded-md truncate ${activeChatId === chatItem.id ? 'font-semibold text-white' : 'text-gray-200 group-hover:text-white'}`}>
+                                                    {chatItem.title}
+                                                </button>
+                                                <div className="flex flex-shrink-0 text-gray-400">
+                                                    <button onClick={() => setEditingChat({ id: chatItem.id, title: chatItem.title })} className="p-1 hover:text-white"><PencilIcon className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDeleteChat(chatItem.id)} className="p-1 hover:text-red-400"><TrashIcon className="w-4 h-4" /></button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-auto pt-2 border-t border-brand-border space-y-2">
+                                <button onClick={() => { setIsCustomBotModalOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center gap-2 p-2 text-sm text-brand-text-primary hover:bg-cyan-500/20 rounded-lg transition-colors">
+                                    <CpuChipIcon className="w-4 h-4 text-cyan-400" />
+                                    <span className="text-white">Buat Chatbot Custom</span>
+                                </button>
+                                <button onClick={handleClearAllChats} className="w-full flex items-center gap-2 p-2 text-sm text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
+                                    <TrashIcon className="w-4 h-4" />
+                                    <span>Hapus Semua Obrolan</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {isMenuOpen && <div className="absolute inset-0 bg-black/50 z-10 sm:hidden" onClick={() => setIsMenuOpen(false)}></div>}
+
+                    {/* Main Chat Area */}
+                    <div className="flex flex-col h-full w-full">
+                        <header className="flex justify-between items-center p-4 border-b border-brand-border flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-brand-text-secondary hover:text-white"><MenuIcon className="w-6 h-6"/></button>
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center flex-shrink-0">
+                                    <DKIcon className="w-6 h-6 text-white"/>
+                                </div>
+                                <div>
+                                    <h1 className="text-lg font-bold text-brand-text-primary">DekaAI Asisten</h1>
+                                    <p className="text-xs text-brand-text-secondary -mt-1">{combinedTemplates[selectedTemplate]?.label || 'Asisten Umum'}</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="bg-red-600 hover:bg-red-700 text-white rounded-md p-1 transition-colors" aria-label="Tutup"><XIcon className="w-5 h-5"/></button>
+                        </header>
+                        
+                        <div className="relative flex-shrink-0 p-4 border-b border-brand-border">
+                            <select
+                                value={selectedTemplate}
+                                onChange={handleTemplateChange}
+                                className="w-full bg-brand-bg-dark border border-brand-border rounded-lg p-2.5 text-brand-text-primary text-sm focus:ring-2 focus:ring-brand-blue outline-none transition appearance-none"
+                            >
+                                <optgroup label="Template Bawaan">
+                                    {Object.entries(PROMPT_TEMPLATES).map(([key, { label }]) => (
+                                        <option key={key} value={key}>{label}</option>
+                                    ))}
+                                </optgroup>
+                                {customTemplates.length > 0 && (
+                                    <optgroup label="Template Custom">
+                                        {customTemplates.map(template => (
+                                            <option key={template.id} value={template.id}>{template.label}</option>
+                                        ))}
+                                    </optgroup>
+                                )}
+                            </select>
+                            <ChevronDownIcon className="w-5 h-5 text-brand-text-secondary absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none"/>
+                        </div>
+
+                        <main ref={messagesEndRef} className="p-4 flex-grow overflow-y-auto space-y-6">
+                            {messages.map((msg, index) => (
+                                <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                                    {msg.role === 'model' && <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center flex-shrink-0"><DKIcon className="w-6 h-6 text-white"/></div>}
+                                    <div className={`w-full max-w-lg rounded-2xl p-3 relative group ${msg.role === 'user' ? 'bg-brand-blue text-white' : 'bg-brand-bg-dark text-white'}`}>
+                                        {msg.role === 'model' && (
+                                            <button onClick={() => handleCopyMessage(msg, index)} className="absolute top-2 right-2 p-1 bg-brand-border/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {copiedMessageId === index ? <CheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4" />}
+                                            </button>
+                                        )}
+                                        {msg.parts.map((part, partIndex) => (
+                                            <div key={partIndex}>
+                                                {part.text && <MarkdownRenderer text={part.text} messageIndex={index} />}
+                                                {part.imageUrl && <img src={part.imageUrl} alt="User upload" className="mt-2 rounded-lg max-w-full h-auto max-h-60" />}
+                                            </div>
+                                        ))}
+                                        {isLoading && index === messages.length - 1 && msg.role === 'model' && msg.parts.every(p => !p.text) && <TypingIndicator />}
+                                    </div>
+                                </div>
+                            ))}
+                        </main>
+
+                        <footer className="p-4 border-t border-brand-border flex-shrink-0 bg-brand-bg-light">
+                            {error && <p className="text-xs text-red-400 mb-2 text-center">{error}</p>}
+                            {previewUrl && (
+                                <div className="relative w-24 h-24 mb-2 p-1 border border-brand-border rounded-lg bg-brand-bg-dark">
+                                     {imageFile && imageFile.type.startsWith('video/') ? (
+                                        <video src={previewUrl} className="w-full h-full object-cover rounded" controls={false} autoPlay loop muted />
+                                    ) : (
+                                        <img src={previewUrl} alt="Preview" className="w-full h-full object-cover rounded"/>
+                                    )}
+                                    <button onClick={() => { setImageFile(null); setPreviewUrl(null); }} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-0.5"><XIcon className="w-4 h-4"/></button>
+                                </div>
+                            )}
+                            <div className="relative flex items-end gap-2">
+                                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/mp4,video/quicktime,video/webm"/>
+                                <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-brand-bg-dark border border-brand-border rounded-lg text-brand-text-secondary hover:text-white"><UploadIcon className="w-5 h-5"/></button>
+                                <textarea
+                                    ref={textareaRef}
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                                    placeholder="Ketik pesan Anda di sini..."
+                                    className="w-full bg-brand-bg-dark border border-brand-border rounded-lg p-3 text-brand-text-primary focus:ring-2 focus:ring-brand-blue outline-none transition resize-none max-h-40"
+                                    rows={1}
+                                />
+                                <button onClick={handleSendMessage} disabled={isLoading || (!input.trim() && !imageFile)} className="p-3 bg-brand-blue text-white rounded-lg disabled:bg-brand-blue-dark/50 disabled:cursor-not-allowed"><ArrowUpIcon className="w-5 h-5"/></button>
+                            </div>
+                        </footer>
+                    </div>
+                </div>
+            </div>
+            {isCustomBotModalOpen && (
+                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setIsCustomBotModalOpen(false)}>
+                    <div 
+                        className="bg-brand-bg-light w-full max-w-md rounded-2xl border border-brand-border shadow-2xl flex flex-col animate-fade-in max-h-[90vh]"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <header className="flex justify-between items-center p-4 border-b border-brand-border">
+                            <h2 className="text-xl font-semibold text-brand-text-primary">Buat Chatbot Custom</h2>
+                            <button onClick={() => setIsCustomBotModalOpen(false)} className="bg-red-600 hover:bg-red-700 text-white rounded-md p-1 transition-colors" aria-label="Tutup"><XIcon className="w-5 h-5"/></button>
+                        </header>
+                        <div className="p-6 space-y-4 overflow-y-auto">
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-brand-text-primary">Nama Chatbot</label>
+                                <input type="text" value={newBotName} onChange={e => setNewBotName(e.target.value)} placeholder="cth: Ahli Copywriting" className="w-full bg-brand-bg-dark p-2 border border-brand-border rounded text-brand-text-primary focus:ring-2 focus:ring-brand-blue outline-none transition"/>
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium mb-1 text-brand-text-primary">Perintah Khusus (System Prompt)</label>
+                                <textarea value={newBotInstruction} onChange={e => setNewBotInstruction(e.target.value)} rows={5} placeholder="Kamu adalah ahli copywriting..." className="w-full bg-brand-bg-dark p-2 border border-brand-border rounded resize-y text-brand-text-primary focus:ring-2 focus:ring-brand-blue outline-none transition"/>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-brand-text-primary">Informasi Tambahan (Opsional)</label>
+                                <textarea value={newBotInfo} onChange={e => setNewBotInfo(e.target.value)} rows={5} placeholder="Masukkan data, contoh, atau konteks tambahan di sini..." className="w-full bg-brand-bg-dark p-2 border border-brand-border rounded resize-y text-brand-text-primary focus:ring-2 focus:ring-brand-blue outline-none transition"/>
+                            </div>
+                        </div>
+                        <footer className="p-4 border-t border-brand-border mt-auto">
+                            <button onClick={handleSaveCustomBot} className="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-bold py-2 px-4 rounded-lg">Simpan Chatbot</button>
+                        </footer>
+                    </div>
+                 </div>
+            )}
+        </>
+    );
+};
