@@ -1,830 +1,645 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GoogleGenAI, Chat } from '@google/genai';
-import { getTextApiKey } from '../services/geminiClient';
-import { fileToBase64, fileToDataUrl } from '../utils/fileUtils';
-import { dbGetAllDekaAiChats, dbSaveDekaAiChat, dbDeleteDekaAiChat, dbClearDekaAiHistory, Message, MessagePart, DekaAiHistory } from '../utils/db';
-import { DKIcon, UploadIcon, XIcon, ArrowUpIcon, ClipboardIcon, CheckIcon, TrashIcon, ChevronDownIcon, MenuIcon, PencilIcon, CpuChipIcon } from './IconComponents';
+<?php
+// Memuat file konfigurasi. Pastikan file config.php berada di direktori yang sama.
+require_once 'config.php';
+?>
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DekaBot - Dashboard</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-const PROMPT_TEMPLATES: Record<string, { label: string; prompt: string }> = {
-    'default': {
-        label: "Asisten Umum DekaAI",
-        prompt: `Kamu adalah DekaAI, asisten resmi aplikasi "DuniaKreator". Ngobrolnya santai aja ya. Selalu tanyain dulu buat klarifikasi kalau permintaan user kurang jelas. Kamu itu jago banget soal bikin konten dan semua fitur di DuniaKreator. Kalau ada yang minta tolong, kasih panduan langkah-langkah yang gampang. Kalau minta ide kreatif, kasih contoh yang konkret. Semua jawabanmu harus dalam Bahasa Indonesia yang santai dan enak dibaca (pakai markdown ya). Pastikan outputnya bersih, gak ada simbol atau karakter aneh.`
-    },
-    'person-to-video': {
-        label: "Foto Karakter Jadi Video",
-        prompt: `
-Kamu adalah ahli prompt Veo 3 untuk membuat video dari foto orang (karakter). Ngobrol dengan user pakai Bahasa Indonesia yang santai, supaya gampang dipahami. Alurnya gini:
-1. **Mulai Percakapan**: Sapa user dulu, lalu tanya: "Mau bikin video dari foto siapa? Orangnya lagi ngapain, di mana, dan suasananya kayak gimana?"
-2. **Minta Foto**: Setelah user jawab, bilang: "Oke, keren! Boleh kirim fotonya sekarang?"
-3. **Tanya Detail Aksi, Emosi, Latar Belakang**: Setelah foto diterima, analisis sekilas, lalu tanya lagi dengan lebih spesifik:
-   - Aksinya seperti apa? (jalan, lari, duduk, melambaikan tangan, dll.)
-   - Ekspresi/emosinya seperti apa? (senang, sedih, terkejut, marah, dll.)
-   - Latar belakangnya seperti apa? (pantai, kota, hutan, studio, dll.)
-4. **Tanya Dialog (opsional)**: Setelah user jawab semua itu, tanyakan: 
-   - "Mau ada dialog/lip sync juga nggak di videonya?"
-   - Kalau iya, lanjut tanya:
-     > "Dialognya mau pakai bahasa apa? (misalnya: Bahasa Indonesia, Bahasa Inggris, Bahasa Jawa, dll.)"
-     > "Logatnya seperti apa? (misalnya: Indonesia standar, Jawa Timur, Sunda, Betawi, dll.)"
-5. **Tanya Durasi**: Setelah semua info lengkap, tanyakan juga: "Mau durasinya berapa detik? Nanti aku bagi jadi beberapa adegan ya, 1 adegan itu sekitar 8 detik di Veo."
-6. **Proses & Buat Prompt**: Setelah semua info lengkap, buat prompt untuk setiap adegan (8 detik per adegan).
-   - **WAJIB**: Prompt video final dalam Bahasa Inggris, detail, sinematik, dan dalam blok kode markdown terpisah supaya gampang disalin.
-   - Setiap scene harus punya:
-     - Deskripsi visual lengkap.
-     - Info kamera (angle, lighting, close-up/dll.).
-     - Format vertikal (9:16, 1080×1920).
-     - Negative prompt (blurry, watermark, distorted, dll.).
-     - Kalau ada dialog, tuliskan teks dialognya sesuai permintaan (tetap dalam bahasa & logat yang diinginkan user).
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-7. **Contoh Output Format:**
-   Adegan 1:
-   \`\`\`
-   A hyperrealistic 8k digital photograph of a young woman wearing a red dress standing on a beach at sunset, smiling softly, the waves behind her shimmer with golden light. Camera: close-up, soft warm lighting, cinematic tone. Format: Vertical (portrait), 1080x1920, 9:16. Negative Prompt: blurry, watermark, distorted face, hand, reflection.
-   \`\`\`
-   Adegan 2:
-   \`\`\`
-   A hyperrealistic 8k digital photograph of the woman walking slowly along the shore, looking thoughtfully at the horizon, her dress fluttering in the breeze. Camera: side view, medium shot, soft golden light. Format: Vertical (portrait), 1080x1920, 9:16. Negative Prompt: blurry, watermark, distorted face, hand, reflection.
-   \`\`\`
-   Adegan 3:
-   \`\`\`
-   A hyperrealistic 8k digital photograph of the woman turning back and waving at the camera, her smile bright, with seagulls flying in the background. Camera: front view, slightly low angle, vibrant tones. Format: Vertical (portrait), 1080x1920, 9:16. She lip syncs in Javanese (East Java accent): “Halo rek, ayo dolan bareng nang kene!” Negative Prompt: blurry, watermark, distorted face, hand, reflection.
-   \`\`\`
-8. **Jaga Output Bersih**: Jangan sampai ada karakter aneh atau simbol tidak perlu di output.
-`
-    },
-    'product-to-video': {
-        label: "Foto Produk Jadi Video",
-        prompt: `Kamu adalah ahli prompt Veo 3 untuk iklan produk. Kamu harus memandu user langkah demi langkah. Ngobrolnya pakai Bahasa Indonesia yang santai ya. Alurnya gini:
-1.  **Mulai Percakapan**: Sapa user dan minta foto: tanyakan mau bikin video iklan produk seperti apa dan minta user kirim fotonya untuk di analisa.
-2.  **Tanya Gaya Video**: Setelah user kirim foto, analisia, lalu tanyakan: "Sip, fotonya udah kuterima. Videonya mau ada narasi/dialog, atau mau fokus ke produknya aja yang gerak-gerak? Kalo produknya aja, mau dipegang tangan atau gerak sendiri?"
-3.  **Tanya Durasi**: Setelah user jawab gaya videonya, tanyakan: "Oke, siap. Mau dibuat total berapa detik videonya? Nanti aku bagi jadi beberapa adegan ya, 1 adegan itu sekitar 8 detik di Veo."
-4.  **Proses & Buat Prompt**: Setelah user kasih durasi, langsung proses. Buat prompt untuk setiap adegan (8 detik per adegan).
-    - **PENTING**: Prompt video finalnya WAJIB dalam Bahasa Inggris (kecuali bagian dialognya), detail, dan sinematik.
-    - **WAJIB**: Format setiap prompt adegan dalam blok kode markdown terpisah biar gampang disalin.
-    - Setiap prompt adegan harus punya deskripsi visual, info kamera, format (selalu Vertikal 9:16), dan Negative Prompt.
-    - Ikuti contoh format ini persis:
-      - **Contoh Produk Gerak Sendiri (tanpa dialog):**
-        Adegan 1:
-        \`\`\`
-        A hyperrealistic 8k digital photograph of a red remote control off-road racing car (number 34) placed on a sandy track, its wheels begin to spin as if coming alive. The car lights up slightly as dust rises around it. Camera: stationary, close-up on wheel, macro details. Format: Vertical (portrait), 1080x1920, 9:16. Negative Prompt: blurry, watermark, human face, hand, distorted, reflection.
-        \`\`\`
-        Adegan 2:
-        \`\`\`
-        A hyperrealistic 8k digital photograph of the red RC off-road car drifting sharply on a dirt curve, kicking up a cloud of dust, then performing a small jump over a ramp, looking dynamic and fast. Camera: side view tracking shot, crisp details, warm outdoor lighting. Format: Vertical (portrait), 1080x1920, 9:16. Negative Prompt: blurry, watermark, human face, hand, distorted, reflection.
-        \`\`\`
-      - **Contoh Dipegang Tangan (dengan dialog):**
-        Adegan 1:
-        \`\`\`
-        A hyperrealistic 8k digital photograph of a human hand holding a red RC off-road car (number 34) above a wooden table, the hand gently rotates it to show details. Camera: POV close-up, soft warm light, vibrant color. Format: Vertical (portrait), 1080x1920, 9:16. He lip syncs in Indonesian: “Wah keren banget mobil remot ini, warnanya merah menyala!” Negative Prompt: blurry, watermark, human face, reflection.
-        \`\`\`
-        Adegan 2:
-        \`\`\`
-        A hyperrealistic 8k digital photograph of the hand placing the RC car on a sandy track, then pushing it slightly as the wheels start moving. Camera: POV close-up, outdoor light, realistic dust details. Format: Vertical (portrait), 1080x1920, 9:16. He lip syncs in Indonesian: “Lihat tuh bannya, siap buat off-road!” Negative Prompt: blurry, watermark, human face, reflection.
-        \`\`\`
-    - Pastikan outputnya bersih tanpa karakter aneh.`
-    },
-    'replicate-viral': {
-        label: "Replika Konten Viral",
-        prompt: `Kamu adalah DekaAI, seorang ahli pereplikasi video viral dan pakar prompt engineer untuk Google Veo 3. Tujuan utamamu adalah membantu pengguna menganalisis video yang mereka unggah dan membuat prompt Veo 3 yang super detail untuk menirunya semirip mungkin. Gunakan Bahasa Indonesia yang santai dan profesional.
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        /* CSS Perbaikan untuk Iframe Responsif */
+        html.iframe-body, .iframe-body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Mencegah body utama scroll */
+        }
+        .iframe-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; /* FIX: Memungkinkan scrolling vertikal di dalam container iframe */
+            -webkit-overflow-scrolling: touch; /* Scrolling yang lebih mulus di iOS */
+        }
+        .iframe-content {
+            flex-grow: 1;
+            border: none;
+            width: 100%;
+            height: 100%;
+        }
 
-**PENTING: Selalu mulai percakapan pertama dengan pesan ini, tanpa tambahan apapun:**
-"Halo! Siap mereplika konten viral? Unggah video yang mau ditiru ya. **Info penting: biar hasilnya maksimal, videonya jangan lebih dari 15MB atau durasi video di atas 30 Detik ya.** Kalau lebih dari itu, mungkin hasilnya kurang akurat."
+        /* Modern Loader CSS */
+        .loader {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            position: relative;
+            animation: rotate 1s linear infinite
+        }
+        .loader::before , .loader::after {
+            content: "";
+            box-sizing: border-box;
+            position: absolute;
+            inset: 0px;
+            border-radius: 50%;
+            border: 5px solid #FFF;
+            animation: prixClipFix 2s linear infinite ;
+        }
+        .loader::after{
+            border-color: #4f46e5; /* indigo-600 */
+            animation: prixClipFix 2s linear infinite , rotate 0.5s linear infinite reverse;
+            inset: 6px;
+        }
 
-**Alur Percakapan & Tugasmu:**
+        @keyframes rotate {
+            0%   {transform: rotate(0deg)}
+            100%   {transform: rotate(360deg)}
+        }
 
-1.  **Tunggu Video dari User**: Setelah mengirim pesan pembuka di atas, tunggu sampai user mengunggah video. Jangan tanya apa-apa lagi sebelum video diterima.
+        @keyframes prixClipFix {
+            0%   {clip-path:polygon(50% 50%,0 0,0 0,0 0,0 0,0 0)}
+            25%  {clip-path:polygon(50% 50%,0 0,100% 0,100% 0,100% 0,100% 0)}
+            50%  {clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,100% 100%,100% 100%)}
+            75%  {clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 100%)}
+            100% {clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 0)}
+        }
+    </style>
+</head>
+<body class="text-slate-800 leading-relaxed">
 
-2.  **Analisis Video (Setelah Diunggah)**: Begitu user mengunggah video, tugasmu adalah menganalisisnya secara mendalam. Perhatikan:
-    -   **Subjek & Karakter**: Siapa atau apa yang ada di video? Bagaimana penampilan mereka?
-    -   **Lingkungan**: Di mana lokasinya? Waktu (pagi/siang/malam)? Cuaca?
-    -   **Aksi**: Apa yang terjadi di setiap adegan?
-    -   **Sinematografi**: Bagaimana pergerakan kamera, sudut pengambilan gambar, pencahayaan, dan gaya visualnya?
-    -   **Audio**: Apa ada musik latar? Efek suara? Bagaimana mood-nya?
-    -   **Dialog**: Apakah ada yang berbicara?
-
-3.  **Konfirmasi & Minta Dialog & Music/Sound Effek (Jika Perlu)**: Setelah menganalisis, berikan ringkasan singkat hasil analisismu kepada user. Lalu tanyakan:
-    -   "Oke, videonya udah aku analisis. Kelihatannya tentang [sebutkan ringkasan singkat]. Nah, untuk video replikanya nanti, kamu mau pakai dialog & Sound yang sama persis atau mau pakai dialog baru? Saran saya pakai dialog baru aja, biar natural, karena ini masih tahap uji coba. Kalau mau pakai dialog baru, silakan ketik di sini ya."
-
-4.  **Buat Prompt Final**: Setelah user memberikan konfirmasi atau dialog baru, langsung buat prompt Veo 3.
-    -   **Bagi menjadi Adegan 8 Detik**: Potong alur video menjadi beberapa adegan, di mana setiap adegan merepresentasikan sekitar 8 detik dari video asli.
-    -   **Prompt per Adegan**: Untuk setiap adegan, buat satu blok prompt yang super detail.
-    -   **WAJIB**: Prompt video final harus dalam **Bahasa Inggris** (kecuali bagian dialog), sangat detail, sinematik, dan menggunakan istilah-istilah teknis kamera/pencahayaan yang relevan.
-    -   **WAJIB**: Setiap adegan harus dalam **blok kode markdown terpisah** agar mudah disalin.
-    -   **Konsistensi**: Pastikan deskripsi karakter dan lingkungan konsisten di semua prompt adegan.
-    -   **Aksi Karakter**: Pastikan Aksi Karakter Sangat Mirip Dengan Video Yang Di Analisa/dikirim user di semua prompt adegan.
-    -   **Format Vertikal**: Asumsikan semua video viral adalah format vertikal (9:16).
-    -   **Sertakan Audio & Dialog**: Deskripsikan audio (musik, sfx) dan sertakan dialog dengan format lip-sync yang benar.
-    -   **Negative Prompt**: Sertakan negative prompt yang komprehensif.
-
-5.  **Jaga Output Bersih**: Pastikan tidak ada karakter aneh atau simbol yang tidak perlu di output final.`
-    },
-    'optimize-story': {
-        label: "Optimalkan Ide Cerita",
-        prompt: `Kamu itu jagoannya nulis skenario dan 'dokter cerita'. Ngobrolnya santai. Kalau user kasih ide cerita simpel dalam Bahasa Indonesia, tanyain dulu konteks lainnya (misal: nuansa, genre, atau buat siapa ceritanya). Habis itu, kembangin idenya jadi cerita yang detail lengkap dengan karakter, motivasi, struktur 3 babak (awal, tengah, akhir), adegan kunci, dan contoh dialog. Hasilnya harus keren, detail, dan bersih dari simbol-simbol aneh.`
-    },
-    'marketing-idea': {
-        label: "Buat Ide Marketing/Iklan",
-        prompt: `Kamu itu ahli strategi marketing senior. Ngobrolnya santai. Kalau user ngasih produk atau jasa, tanya dulu target audiensnya siapa dan mau di platform apa (kalau belum jelas). Terus, kasih 3 ide kampanye iklan yang beda, kreatif, dan cocok buat sosmed Indonesia. Buat tiap ide, sertakan konsep inti, target audiens, slogan yang nempel, dan deskripsi singkat iklan videonya. Jawabannya pakai Bahasa Indonesia yang santai dan bersih ya.`
-    },
-    'viral-strategy': {
-        label: "Rancang Konten Viral",
-        prompt: `Kamu itu ahli strategi konten viral khusus pasar Indonesia. Ngobrolnya santai. Kalau user minta strategi biar viral, pastiin dulu dia mau pakai platform apa (TikTok, Reels, dll) dan suka bikin konten jenis apa. Terus, kasih strategi lengkap yang bisa langsung dipraktekin dalam Bahasa Indonesia: info audio dan format yang lagi tren, tips bikin hook kuat 3 detik pertama, cara cerita yang nyambung sama budaya lokal, strategi hashtag, dan waktu posting terbaik. Bikin jawabannya yang gampang diikuti dan bersih ya.`
-    }
-};
-
-
-interface DekaAiModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-interface CustomTemplate {
-  id: string;
-  label: string;
-  prompt: string;
-}
-
-const TypingIndicator: React.FC = () => (
-    <div className="flex items-center gap-1.5 px-2">
-        <div className="w-2 h-2 bg-brand-text-secondary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-        <div className="w-2 h-2 bg-brand-text-secondary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-        <div className="w-2 h-2 bg-brand-text-secondary rounded-full animate-bounce"></div>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center transition-opacity duration-300">
+        <div class="loader"></div>
     </div>
-);
 
-const CodeBlock: React.FC<{ language: string; code: string; onCopy: () => void; copied: boolean }> = ({ language, code, onCopy, copied }) => {
-    return (
-        <div className="bg-black/50 rounded-lg my-2 text-white">
-            <div className="flex justify-between items-center px-4 py-1.5 bg-gray-700/50 rounded-t-lg">
-                <span className="text-xs text-gray-400">{language || 'code'}</span>
-                <button onClick={onCopy} className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white">
-                    {copied ? <CheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4" />}
-                    {copied ? 'Tersalin' : 'Salin'}
-                </button>
+    <!-- Main App View (Dashboard) -->
+    <div id="appView" class="hidden min-h-screen w-full bg-slate-100">
+        <!-- Dashboard Header -->
+        <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-20">
+                     <h2 id="welcomeMessage" class="text-xl font-bold text-slate-800">Selamat datang!</h2>
+                    <button id="logoutButton" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-all flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-arrow-right-from-bracket mr-2"></i>Keluar
+                    </button>
+                </div>
             </div>
-            <pre className="p-4 text-sm whitespace-pre-wrap break-words overflow-x-auto">
-                <code>{code}</code>
-            </pre>
-        </div>
-    );
-};
+        </header>
 
-const renderTextWithMarkdown = (text: string) => {
-  const lines = text.split('\n');
-  const elements: React.ReactElement[] = [];
-  let listType: 'ul' | 'ol' | null = null;
-  let listItems: React.ReactElement[] = [];
-
-  const flushList = () => {
-    if (listItems.length > 0) {
-      if (listType === 'ul') {
-        elements.push(<ul key={`ul-${elements.length}`} className="list-disc list-inside my-2 pl-4">{listItems}</ul>);
-      } else if (listType === 'ol') {
-        elements.push(<ol key={`ol-${elements.length}`} className="list-decimal list-inside my-2 pl-4">{listItems}</ol>);
-      }
-      listItems = [];
-      listType = null;
-    }
-  };
-
-  const parseLine = (line: string) => {
-    line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    line = line.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    return <span dangerouslySetInnerHTML={{ __html: line }} />;
-  };
-
-  lines.forEach((line, index) => {
-    const olMatch = line.match(/^\s*(\d+)\.\s+(.*)/);
-    const ulMatch = line.match(/^\s*([*-])\s+(.*)/);
-    const bqMatch = line.match(/^\s*>\s+(.*)/);
-
-    if (olMatch) {
-      if (listType !== 'ol') flushList();
-      listType = 'ol';
-      listItems.push(<li key={index}>{parseLine(olMatch[2])}</li>);
-    } else if (ulMatch) {
-      if (listType !== 'ul') flushList();
-      listType = 'ul';
-      listItems.push(<li key={index}>{parseLine(ulMatch[2])}</li>);
-    } else if (bqMatch) {
-      flushList();
-      elements.push(<blockquote key={index} className="border-l-4 border-gray-500 pl-4 italic my-2">{parseLine(bqMatch[1])}</blockquote>);
-    } else {
-      flushList();
-      if (line.trim() !== '') {
-        elements.push(<p key={index} className="my-1">{parseLine(line)}</p>);
-      } else {
-        if (elements.length > 0 && (elements[elements.length - 1].props as { className?: string }).className?.includes('h-4') === false) {
-           elements.push(<div key={index} className="h-4"></div>);
-        }
-      }
-    }
-  });
-
-  flushList();
-  return <>{elements}</>;
-};
-
-
-const MarkdownRenderer: React.FC<{ text: string; messageIndex: number }> = ({ text, messageIndex }) => {
-    const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
-
-    const handleCopy = (code: string, blockIndex: number) => {
-        navigator.clipboard.writeText(code);
-        setCopiedStates(prev => ({ ...prev, [`${messageIndex}-${blockIndex}`]: true }));
-        setTimeout(() => {
-            setCopiedStates(prev => ({ ...prev, [`${messageIndex}-${blockIndex}`]: false }));
-        }, 2000);
-    };
-    
-    const codeBlockRegex = /```(\w*)\n([\s\S]*?)\n```/g;
-    
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = codeBlockRegex.exec(text)) !== null) {
-        if (match.index > lastIndex) {
-            parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
-        }
-        parts.push({ type: 'code', language: match[1], content: match[2] });
-        lastIndex = match.index + match[0].length;
-    }
-
-    if (lastIndex < text.length) {
-        parts.push({ type: 'text', content: text.substring(lastIndex) });
-    }
-
-    return (
-        <div className="prose prose-sm prose-invert max-w-none leading-relaxed">
-            {parts.map((part, index) => {
-                if (part.type === 'code') {
-                    const blockKey = `${messageIndex}-${index}`;
-                    return (
-                        <CodeBlock
-                            key={blockKey}
-                            language={part.language}
-                            code={part.content}
-                            onCopy={() => handleCopy(part.content, index)}
-                            copied={!!copiedStates[blockKey]}
-                        />
-                    );
-                }
-                return <div key={index}>{renderTextWithMarkdown(part.content)}</div>;
-            })}
-        </div>
-    );
-};
-
-
-export const DekaAiModal: React.FC<DekaAiModalProps> = ({ isOpen, onClose }) => {
-    const [chat, setChat] = useState<Chat | null>(null);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState('');
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
-    
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [chatHistory, setChatHistory] = useState<DekaAiHistory[]>([]);
-    const [activeChatId, setActiveChatId] = useState<string | null>(null);
-    const [editingChat, setEditingChat] = useState<{id: string, title: string} | null>(null);
-    const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
-
-    // Custom Chatbot States
-    const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
-    const [isCustomBotModalOpen, setIsCustomBotModalOpen] = useState(false);
-    const [newBotName, setNewBotName] = useState('');
-    const [newBotInstruction, setNewBotInstruction] = useState('');
-    const [newBotInfo, setNewBotInfo] = useState('');
-    
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    const CUSTOM_TEMPLATES_KEY = 'duniakreator-custom-chatbots';
-
-    const getCustomChatbotTemplates = (): CustomTemplate[] => {
-      try {
-        const stored = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
-        return stored ? JSON.parse(stored) : [];
-      } catch (e) {
-        return [];
-      }
-    };
-
-    const saveCustomChatbotTemplates = (templates: CustomTemplate[]) => {
-      localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
-    };
-
-    const combinedTemplates = {
-      ...PROMPT_TEMPLATES,
-      ...customTemplates.reduce((acc, t) => {
-        acc[t.id] = { label: t.label, prompt: t.prompt };
-        return acc;
-      }, {} as Record<string, { label: string; prompt: string }>)
-    };
-    
-    const initializeChatInstance = useCallback((templateKey: string, history: Message[]): Chat | null => {
-        try {
-            const apiKey = getTextApiKey();
-            const ai = new GoogleGenAI({ apiKey });
-            const template = combinedTemplates[templateKey] || combinedTemplates['default'];
-            
-            const formattedHistory = history.map(msg => {
-                const newParts = msg.parts.map(part => {
-                    if (part.imageUrl && part.imageUrl.startsWith('data:')) {
-                        const [header, data] = part.imageUrl.split(',');
-                        const mimeMatch = header.match(/:(.*?);/);
-                        if (mimeMatch && data) {
-                            return { inlineData: { mimeType: mimeMatch[1], data } };
-                        }
-                    }
-                    if (part.text) {
-                        return { text: part.text };
-                    }
-                    return null; 
-                }).filter(Boolean) as ({text: string} | {inlineData: {mimeType: string, data: string}})[];
-
-                return { role: msg.role, parts: newParts };
-            });
-
-            const newChat = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                config: { systemInstruction: template.prompt },
-                history: formattedHistory
-            });
-            setChat(newChat);
-            return newChat;
-        } catch (e) {
-            console.error(e);
-            setError(e instanceof Error ? e.message : 'Gagal memulai sesi chat.');
-            setChat(null);
-            return null;
-        }
-    }, [customTemplates]);
-
-    const startInitialConversation = async (chatInstance: Chat, chatData: DekaAiHistory) => {
-        setIsLoading(true);
-        setMessages([{ role: 'model', parts: [{ text: '' }] }]); // UI typing indicator
-    
-        try {
-            const stream = await chatInstance.sendMessageStream({ message: "Sapa pengguna dengan ramah dan mulai percakapan sesuai dengan system prompt." });
-    
-            let fullResponseText = '';
-            for await (const chunk of stream) {
-                fullResponseText += chunk.text;
-                setMessages([{ role: 'model', parts: [{ text: fullResponseText }] }]);
-            }
-    
-            const modelMessage: Message = { role: 'model', parts: [{ text: fullResponseText }] };
-            const newTitle = `Obrolan: ${combinedTemplates[chatData.templateKey]?.label || 'Umum'}`;
-    
-            const finalChatState: DekaAiHistory = {
-                ...chatData,
-                title: newTitle,
-                messages: [modelMessage]
-            };
-    
-            await dbSaveDekaAiChat(finalChatState);
-            setChatHistory(prev => [finalChatState, ...prev.filter(c => c.id !== chatData.id)]);
-    
-        } catch (e) {
-            console.error("Initial conversation failed:", e);
-            const errorMessage = e instanceof Error ? e.message : "Gagal memulai percakapan";
-            setMessages([{ role: 'model', parts: [{ text: `Error: ${errorMessage}` }] }]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    const createNewChat = async (templateKey: string = 'default') => {
-        const newChatData: DekaAiHistory = {
-            id: `chat-${Date.now()}`,
-            title: "Memulai obrolan...",
-            messages: [],
-            createdAt: new Date().toISOString(),
-            templateKey: templateKey
-        };
-        
-        setActiveChatId(newChatData.id);
-        setMessages([]);
-        setSelectedTemplate(templateKey);
-        setChatHistory(prev => [newChatData, ...prev]);
-        
-        const newChatInstance = initializeChatInstance(templateKey, []);
-        
-        if (newChatInstance) {
-            await startInitialConversation(newChatInstance, newChatData);
-        }
-    };
-
-    useEffect(() => {
-        const loadData = async () => {
-            const customBots = getCustomChatbotTemplates();
-            setCustomTemplates(customBots);
-            
-            const history = await dbGetAllDekaAiChats();
-            if (history.length > 0) {
-                setChatHistory(history);
-                const latestChat = history[0];
-                setActiveChatId(latestChat.id);
-                setMessages(latestChat.messages);
-                setSelectedTemplate(latestChat.templateKey);
-                initializeChatInstance(latestChat.templateKey, latestChat.messages);
-            } else {
-                await createNewChat(); 
-            }
-        };
-        if (isOpen) {
-            loadData();
-        }
-    }, [isOpen]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isLoading]);
-
-    const handleTemplateChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newTemplateKey = e.target.value;
-        await createNewChat(newTemplateKey);
-    };
-
-    const handleSendMessage = async () => {
-        const currentChatId = activeChatId;
-        if ((!input.trim() && !imageFile) || !chat || !currentChatId) return;
-
-        // 1. Prepare user message & capture state
-        const userMessageParts: MessagePart[] = [];
-        if (input.trim()) userMessageParts.push({ text: input });
-        if (previewUrl) userMessageParts.push({ imageUrl: previewUrl }); // This is now a data URL
-        
-        const userMessage: Message = { role: 'user', parts: userMessageParts };
-        const typingIndicator: Message = { role: 'model', parts: [{ text: '' }] };
-        const currentInput = input;
-        const currentImageFile = imageFile;
-
-        // 2. Optimistic UI update
-        setMessages(prev => [...prev, userMessage, typingIndicator]);
-        setInput('');
-        setImageFile(null);
-        setPreviewUrl(null);
-        setIsLoading(true);
-        setError(null);
-    
-        // 3. Prepare prompt parts for Gemini API
-        const promptParts: (string | { inlineData: { mimeType: string; data: string } })[] = [];
-        if (currentInput.trim()) promptParts.push(currentInput.trim());
-        if (currentImageFile) {
-            try {
-                const base64Image = await fileToBase64(currentImageFile);
-                promptParts.push({ inlineData: { mimeType: currentImageFile.type, data: base64Image } });
-            } catch (e) {
-                 const errorText = "Gagal memproses gambar.";
-                 setMessages(prev => prev.slice(0, -1).concat([{ role: 'model', parts: [{ text: errorText }] }]));
-                 setIsLoading(false);
-                 return;
-            }
-        }
-        
-        // 4. Stream response from AI
-        try {
-            const stream = await chat.sendMessageStream({ message: promptParts });
-            let fullResponseText = '';
-            for await (const chunk of stream) {
-                fullResponseText += chunk.text;
-                setMessages(prev => {
-                    const newMessages = [...prev];
-                    if (newMessages.length > 0) {
-                        newMessages[newMessages.length - 1] = { role: 'model', parts: [{ text: fullResponseText }] };
-                    }
-                    return newMessages;
-                });
-            }
-    
-            // 5. Once streaming is complete, update database and history state
-            const modelMessage: Message = { role: 'model', parts: [{ text: fullResponseText }] };
-            
-            const currentChat = chatHistory.find(c => c.id === currentChatId);
-            if (currentChat) {
-                let newTitle = currentChat.title;
-                const isFirstUserMessage = currentChat.messages.length <= 1;
-
-                if (isFirstUserMessage && currentInput.trim() && (currentChat.title.startsWith("Memulai") || currentChat.title.startsWith("Obrolan Baru"))) {
-                    try {
-                        const titleAi = new GoogleGenAI({apiKey: getTextApiKey()});
-                        const titleRes = await titleAi.models.generateContent({model: 'gemini-2.5-flash', contents: `Buat judul singkat (maksimal 5 kata) dalam Bahasa Indonesia untuk percakapan yang dimulai dengan: "${currentInput.trim()}"`});
-                        newTitle = titleRes.text.trim().replace(/"/g, '') || `Obrolan: ${currentInput.substring(0, 20)}`;
-                    } catch (titleError) {
-                        console.error("Gagal membuat judul obrolan:", titleError);
-                        newTitle = `Obrolan: ${currentInput.substring(0, 20)}`;
-                    }
-                }
-                
-                const finalChatState: DekaAiHistory = {
-                    ...currentChat,
-                    title: newTitle,
-                    messages: [...currentChat.messages, userMessage, modelMessage]
-                };
-    
-                await dbSaveDekaAiChat(finalChatState);
-                setChatHistory(prev => {
-                    const otherChats = prev.filter(c => c.id !== currentChatId);
-                    return [finalChatState, ...otherChats];
-                });
-            }
-    
-        } catch (e) {
-            console.error(e);
-            const errorMessage = e instanceof Error ? e.message : "Terjadi kesalahan";
-            const errorText = `Maaf, terjadi kesalahan: ${errorMessage}`;
-            const errorModelMessage: Message = { role: 'model', parts: [{ text: errorText }] };
-            setMessages(prev => prev.slice(0, -1).concat([errorModelMessage]));
-            
-            const currentChat = chatHistory.find(c => c.id === currentChatId);
-            if (currentChat) {
-                const errorChatState = { ...currentChat, messages: [...currentChat.messages, userMessage, errorModelMessage] };
-                await dbSaveDekaAiChat(errorChatState);
-                setChatHistory(prev => prev.map(c => c.id === currentChatId ? errorChatState : c));
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    const handleSelectChat = (chatId: string) => {
-        const selected = chatHistory.find(c => c.id === chatId);
-        if (selected) {
-            setActiveChatId(selected.id);
-            setMessages(selected.messages);
-            setSelectedTemplate(selected.templateKey);
-            initializeChatInstance(selected.templateKey, selected.messages);
-            setIsMenuOpen(false);
-        }
-    };
-    
-    const handleDeleteChat = async (chatId: string) => {
-        if (window.confirm("Yakin ingin menghapus obrolan ini?")) {
-            await dbDeleteDekaAiChat(chatId);
-            const updatedHistory = chatHistory.filter(c => c.id !== chatId);
-            setChatHistory(updatedHistory);
-            if (activeChatId === chatId) {
-                if (updatedHistory.length > 0) {
-                    handleSelectChat(updatedHistory[0].id);
-                } else {
-                    await createNewChat();
-                }
-            }
-        }
-    };
-
-    const handleUpdateChatTitle = async () => {
-        if (!editingChat || !editingChat.title.trim()) return;
-        const chatToUpdate = chatHistory.find(c => c.id === editingChat.id);
-        if (chatToUpdate) {
-            chatToUpdate.title = editingChat.title.trim();
-            await dbSaveDekaAiChat(chatToUpdate);
-            setChatHistory(prev => prev.map(c => c.id === editingChat.id ? chatToUpdate : c));
-        }
-        setEditingChat(null);
-    };
-
-    const handleCopyMessage = (msg: Message, index: number) => {
-        const textToCopy = msg.parts.map(p => p.text).filter(Boolean).join('\n\n');
-        if (textToCopy) {
-            navigator.clipboard.writeText(textToCopy);
-            setCopiedMessageId(index);
-            setTimeout(() => setCopiedMessageId(null), 2000);
-        }
-    };
-    
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) { 
-            setImageFile(file); 
-            try {
-                const dataUrl = await fileToDataUrl(file);
-                setPreviewUrl(dataUrl);
-            } catch (err) {
-                setError("Gagal memuat pratinjau gambar.");
-                setImageFile(null);
-                setPreviewUrl(null);
-            }
-        }
-    };
-
-    const handleClearAllChats = async () => {
-        if (window.confirm("Apakah Anda yakin ingin menghapus SEMUA obrolan? Tindakan ini tidak dapat diurungkan.")) {
-            await dbClearDekaAiHistory();
-            setChatHistory([]);
-            await createNewChat();
-        }
-    };
-
-    const handleSaveCustomBot = () => {
-        if (!newBotName.trim() || !newBotInstruction.trim()) {
-            alert("Nama chatbot dan perintah khusus tidak boleh kosong.");
-            return;
-        }
-        const fullPrompt = `${newBotInstruction}\n\n--- INFORMASI TAMBAHAN ---\n${newBotInfo}`;
-        const newTemplate: CustomTemplate = {
-            id: `custom-${Date.now()}`,
-            label: newBotName,
-            prompt: fullPrompt,
-        };
-        const updatedTemplates = [...customTemplates, newTemplate];
-        saveCustomChatbotTemplates(updatedTemplates);
-        setCustomTemplates(updatedTemplates);
-        setNewBotName('');
-        setNewBotInstruction('');
-        setNewBotInfo('');
-        setIsCustomBotModalOpen(false);
-    };
-    
-     useEffect(() => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-        }
-    }, [input]);
-
-    if (!isOpen) return null;
-
-    return (
-        <>
-            <div className="fixed inset-0 bg-black/70 flex items-end justify-center sm:items-center z-50 p-0 sm:p-4" onClick={onClose}>
-                <div 
-                    className="bg-brand-bg-light w-full h-full sm:h-[90vh] sm:max-w-2xl rounded-t-2xl sm:rounded-2xl border border-brand-border shadow-2xl flex flex-col animate-fade-in relative overflow-hidden"
-                    onClick={e => e.stopPropagation()}
-                >
-                    {/* Chat History Sidebar */}
-                    <div className={`absolute top-0 left-0 h-full w-64 bg-brand-bg-dark border-r border-brand-border z-20 transform transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                        <div className="p-2 flex flex-col h-full">
-                            <button onClick={() => createNewChat(selectedTemplate)} className="w-full text-left p-2 mb-2 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-lg font-semibold">
-                                + Obrolan Baru
+        <!-- Dashboard Content -->
+        <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+            <div class="w-full max-w-4xl mx-auto">
+                 <div id="dashboardSection" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full">
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-8 border-b border-slate-200 pb-6">
+                        <div>
+                            <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Dashboard Member</h1>
+                            <p id="dashboardEmail" class="text-slate-500 mt-1 text-sm"></p>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-4 mt-4 sm:mt-0">
+                             <button id="buatKontenButton" type="button" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
+                                <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Buat Konten
                             </button>
-                            <div className="flex-grow overflow-y-auto space-y-1 pr-1">
-                                {chatHistory.map(chatItem => (
-                                    <div key={chatItem.id} className={`group flex items-center w-full rounded-md pr-2 ${activeChatId === chatItem.id ? 'bg-brand-bg-light' : 'hover:bg-brand-bg-light/50'}`}>
-                                        {editingChat?.id === chatItem.id ? (
-                                            <input
-                                                type="text"
-                                                value={editingChat.title}
-                                                onChange={(e) => setEditingChat({ ...editingChat, title: e.target.value })}
-                                                onBlur={handleUpdateChatTitle}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleUpdateChatTitle()}
-                                                autoFocus
-                                                className="flex-grow p-2 text-sm bg-brand-bg-light border border-brand-blue rounded-md"
-                                            />
-                                        ) : (
-                                            <>
-                                                <button onClick={() => handleSelectChat(chatItem.id)} className={`flex-grow text-left p-2 text-sm rounded-md truncate ${activeChatId === chatItem.id ? 'font-semibold text-white' : 'text-gray-200 group-hover:text-white'}`}>
-                                                    {chatItem.title}
-                                                </button>
-                                                <div className="flex flex-shrink-0 text-gray-400">
-                                                    <button onClick={() => setEditingChat({ id: chatItem.id, title: chatItem.title })} className="p-1 hover:text-white"><PencilIcon className="w-4 h-4" /></button>
-                                                    <button onClick={() => handleDeleteChat(chatItem.id)} className="p-1 hover:text-red-400"><TrashIcon className="w-4 h-4" /></button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="mt-auto pt-2 border-t border-brand-border space-y-2">
-                                <button onClick={() => { setIsCustomBotModalOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center gap-2 p-2 text-sm text-brand-text-primary hover:bg-cyan-500/20 rounded-lg transition-colors">
-                                    <CpuChipIcon className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-white">Buat Chatbot Custom</span>
-                                </button>
-                                <button onClick={handleClearAllChats} className="w-full flex items-center gap-2 p-2 text-sm text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-                                    <TrashIcon className="w-4 h-4" />
-                                    <span>Hapus Semua Obrolan</span>
-                                </button>
-                            </div>
                         </div>
                     </div>
-                    {isMenuOpen && <div className="absolute inset-0 bg-black/50 z-10 sm:hidden" onClick={() => setIsMenuOpen(false)}></div>}
 
-                    {/* Main Chat Area */}
-                    <div className="flex flex-col h-full w-full">
-                        <header className="flex justify-between items-center p-4 border-b border-brand-border flex-shrink-0">
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-brand-text-secondary hover:text-white"><MenuIcon className="w-6 h-6"/></button>
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center flex-shrink-0">
-                                    <DKIcon className="w-6 h-6 text-white"/>
-                                </div>
-                                <div>
-                                    <h1 className="text-lg font-bold text-brand-text-primary">DekaAI Asisten</h1>
-                                    <p className="text-xs text-brand-text-secondary -mt-1">{combinedTemplates[selectedTemplate]?.label || 'Asisten Umum'}</p>
+                    <!-- Tombol Aksi Tambahan -->
+                    <div class="flex flex-col sm:flex-row gap-4 mb-8">
+                        <button id="downloadAppButton" type="button" class="w-full sm:w-auto flex-1 bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-300 flex items-center justify-center">
+                            <i class="fa-solid fa-download mr-2"></i>Download Aplikasi
+                        </button>
+                        <a href="https://chat.whatsapp.com/H4Gbd4MCnHlFq3IreWArK9?mode=ac_t" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto flex-1 bg-green-500 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all duration-300 flex items-center justify-center">
+                            <i class="fa-brands fa-whatsapp mr-2"></i>Join Grup WA
+                        </a>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-2 gap-x-12 gap-y-8">
+                        <!-- Account Information -->
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-xl font-semibold text-slate-800">Informasi Akun</h3>
+                                <div class="flex items-center">
+                                    <button id="editProfileButton" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm flex items-center"><i class="fa-solid fa-pen-to-square mr-2"></i>Edit</button>
+                                    <button id="saveProfileButton" class="bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg shadow-md hover:bg-indigo-700 text-sm hidden items-center justify-center"><i class="fa-solid fa-save mr-2"></i>Simpan</button>
                                 </div>
                             </div>
-                            <button onClick={onClose} className="bg-red-600 hover:bg-red-700 text-white rounded-md p-1 transition-colors" aria-label="Tutup"><XIcon className="w-5 h-5"/></button>
-                        </header>
-                        
-                        <div className="relative flex-shrink-0 p-4 border-b border-brand-border">
-                            <select
-                                value={selectedTemplate}
-                                onChange={handleTemplateChange}
-                                className="w-full bg-brand-bg-dark border border-brand-border rounded-lg p-2.5 text-brand-text-primary text-sm focus:ring-2 focus:ring-brand-blue outline-none transition appearance-none"
-                            >
-                                <optgroup label="Template Bawaan">
-                                    {Object.entries(PROMPT_TEMPLATES).map(([key, { label }]) => (
-                                        <option key={key} value={key}>{label}</option>
-                                    ))}
-                                </optgroup>
-                                {customTemplates.length > 0 && (
-                                    <optgroup label="Template Custom">
-                                        {customTemplates.map(template => (
-                                            <option key={template.id} value={template.id}>{template.label}</option>
-                                        ))}
-                                    </optgroup>
-                                )}
-                            </select>
-                            <ChevronDownIcon className="w-5 h-5 text-brand-text-secondary absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none"/>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-sm font-medium text-slate-500">Nama</label>
+                                    <input type="text" id="dashboardNama" class="w-full text-lg font-semibold bg-transparent border-none p-0 focus:ring-0" disabled>
+                                </div>
+                                <hr class="border-slate-200">
+                                <div>
+                                    <label class="text-sm font-medium text-slate-500">No. WhatsApp</label>
+                                    <input type="text" id="dashboardNoWa" class="w-full text-lg font-semibold bg-transparent border-none p-0 focus:ring-0" disabled>
+                                </div>
+                            </div>
                         </div>
 
-                        <main ref={messagesEndRef} className="p-4 flex-grow overflow-y-auto space-y-6">
-                            {messages.map((msg, index) => (
-                                <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                                    {msg.role === 'model' && <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center flex-shrink-0"><DKIcon className="w-6 h-6 text-white"/></div>}
-                                    <div className={`w-full max-w-lg rounded-2xl p-3 relative group ${msg.role === 'user' ? 'bg-brand-blue text-white' : 'bg-brand-bg-dark text-white'}`}>
-                                        {msg.role === 'model' && (
-                                            <button onClick={() => handleCopyMessage(msg, index)} className="absolute top-2 right-2 p-1 bg-brand-border/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {copiedMessageId === index ? <CheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4" />}
-                                            </button>
-                                        )}
-                                        {msg.parts.map((part, partIndex) => (
-                                            <div key={partIndex}>
-                                                {part.text && <MarkdownRenderer text={part.text} messageIndex={index} />}
-                                                {part.imageUrl && <img src={part.imageUrl} alt="User upload" className="mt-2 rounded-lg max-w-full h-auto max-h-60" />}
-                                            </div>
-                                        ))}
-                                        {isLoading && index === messages.length - 1 && msg.role === 'model' && msg.parts.every(p => !p.text) && <TypingIndicator />}
-                                    </div>
+                        <!-- Subscription Information -->
+                        <div class="space-y-6">
+                            <h3 class="text-xl font-semibold text-slate-800">Informasi Langganan</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-sm font-medium text-slate-500">Paket Langganan</label>
+                                    <select id="dashboardPackage" class="w-full text-lg font-semibold bg-transparent border-none p-0 focus:ring-0 appearance-none pointer-events-none" disabled>
+                                        <option value="1bulan">1 Bulan</option> <option value="3bulan">3 Bulan</option> <option value="6bulan">6 Bulan</option> <option value="12bulan">12 Bulan</option>
+                                    </select>
                                 </div>
-                            ))}
-                        </main>
-
-                        <footer className="p-4 border-t border-brand-border flex-shrink-0 bg-brand-bg-light">
-                            {error && <p className="text-xs text-red-400 mb-2 text-center">{error}</p>}
-                            {previewUrl && (
-                                <div className="relative w-24 h-24 mb-2 p-1 border border-brand-border rounded-lg bg-brand-bg-dark">
-                                     {imageFile && imageFile.type.startsWith('video/') ? (
-                                        <video src={previewUrl} className="w-full h-full object-cover rounded" controls={false} autoPlay loop muted />
-                                    ) : (
-                                        <img src={previewUrl} alt="Preview" className="w-full h-full object-cover rounded"/>
-                                    )}
-                                    <button onClick={() => { setImageFile(null); setPreviewUrl(null); }} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-0.5"><XIcon className="w-4 h-4"/></button>
+                                <hr class="border-slate-200">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="text-sm font-medium text-slate-500">Mulai Aktif</label><p id="dashboardMasaAktif" class="font-semibold text-slate-800 text-lg"></p></div>
+                                    <div><label class="text-sm font-medium text-slate-500">Berakhir Pada</label><p id="dashboardMasaBerakhir" class="font-semibold text-slate-800 text-lg"></p></div>
                                 </div>
-                            )}
-                            <div className="relative flex items-end gap-2">
-                                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/mp4,video/quicktime,video/webm"/>
-                                <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-brand-bg-dark border border-brand-border rounded-lg text-brand-text-secondary hover:text-white"><UploadIcon className="w-5 h-5"/></button>
-                                <textarea
-                                    ref={textareaRef}
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                                    placeholder="Ketik pesan Anda di sini..."
-                                    className="w-full bg-brand-bg-dark border border-brand-border rounded-lg p-3 text-brand-text-primary focus:ring-2 focus:ring-brand-blue outline-none transition resize-none max-h-40"
-                                    rows={1}
-                                />
-                                <button onClick={handleSendMessage} disabled={isLoading || (!input.trim() && !imageFile)} className="p-3 bg-brand-blue text-white rounded-lg disabled:bg-brand-blue-dark/50 disabled:cursor-not-allowed"><ArrowUpIcon className="w-5 h-5"/></button>
                             </div>
-                        </footer>
+                        </div>
                     </div>
                 </div>
             </div>
-            {isCustomBotModalOpen && (
-                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setIsCustomBotModalOpen(false)}>
-                    <div 
-                        className="bg-brand-bg-light w-full max-w-md rounded-2xl border border-brand-border shadow-2xl flex flex-col animate-fade-in max-h-[90vh]"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <header className="flex justify-between items-center p-4 border-b border-brand-border">
-                            <h2 className="text-xl font-semibold text-brand-text-primary">Buat Chatbot Custom</h2>
-                            <button onClick={() => setIsCustomBotModalOpen(false)} className="bg-red-600 hover:bg-red-700 text-white rounded-md p-1 transition-colors" aria-label="Tutup"><XIcon className="w-5 h-5"/></button>
-                        </header>
-                        <div className="p-6 space-y-4 overflow-y-auto">
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-brand-text-primary">Nama Chatbot</label>
-                                <input type="text" value={newBotName} onChange={e => setNewBotName(e.target.value)} placeholder="cth: Ahli Copywriting" className="w-full bg-brand-bg-dark p-2 border border-brand-border rounded text-brand-text-primary focus:ring-2 focus:ring-brand-blue outline-none transition"/>
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium mb-1 text-brand-text-primary">Perintah Khusus (System Prompt)</label>
-                                <textarea value={newBotInstruction} onChange={e => setNewBotInstruction(e.target.value)} rows={5} placeholder="Kamu adalah ahli copywriting..." className="w-full bg-brand-bg-dark p-2 border border-brand-border rounded resize-y text-brand-text-primary focus:ring-2 focus:ring-brand-blue outline-none transition"/>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-brand-text-primary">Informasi Tambahan (Opsional)</label>
-                                <textarea value={newBotInfo} onChange={e => setNewBotInfo(e.target.value)} rows={5} placeholder="Masukkan data, contoh, atau konteks tambahan di sini..." className="w-full bg-brand-bg-dark p-2 border border-brand-border rounded resize-y text-brand-text-primary focus:ring-2 focus:ring-brand-blue outline-none transition"/>
-                            </div>
-                        </div>
-                        <footer className="p-4 border-t border-brand-border mt-auto">
-                            <button onClick={handleSaveCustomBot} className="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-bold py-2 px-4 rounded-lg">Simpan Chatbot</button>
-                        </footer>
+        </main>
+    </div>
+
+    <!-- Content Creator Section (Iframe) -->
+    <div id="contentCreatorSection" class="hidden fixed inset-0 z-20">
+        <div class="iframe-container bg-gray-100">
+            <!-- URL Iframe akan dimuat oleh JavaScript -->
+            <iframe id="dekabotIframe" 
+                    class="iframe-content" 
+                    title="Sematkan DekaBot" 
+                    allowfullscreen 
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-pointer-lock allow-orientation-lock allow-presentation allow-top-navigation"
+                    allow="clipboard-write; clipboard-read">
+                Konten ini tidak dapat ditampilkan. Untuk pengalaman terbaik, silakan gunakan browser Google Chrome.
+            </iframe>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModalOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden items-center justify-center p-4 transition-opacity duration-300">
+        <div id="loginSection" class="relative bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-sm transition-all duration-300 scale-95 opacity-0">
+            <button id="closeLoginModal" type="button" class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            <div class="text-center mb-8">
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Selamat Datang</h1>
+                <p class="text-slate-500 mt-2">Masuk untuk melanjutkan ke DekaBot</p>
+            </div>
+            <form class="space-y-5">
+                <div>
+                    <label for="loginEmail" class="text-sm font-medium text-slate-600">Email</label>
+                    <div class="relative mt-2">
+                        <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="email" id="loginEmail" placeholder="email@contoh.com" class="w-full pl-12 pr-4 py-3 bg-slate-100 border-2 border-transparent rounded-xl focus:outline-none focus:border-indigo-500 transition-all">
                     </div>
-                 </div>
-            )}
-        </>
-    );
-};
+                </div>
+                <div>
+                    <label for="loginPassword" class="text-sm font-medium text-slate-600">Password</label>
+                    <div class="relative mt-2">
+                        <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="password" id="loginPassword" placeholder="••••••••" class="w-full pl-12 pr-12 py-3 bg-slate-100 border-2 border-transparent rounded-xl focus:outline-none focus:border-indigo-500 transition-all">
+                        <button type="button" id="togglePassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+                </div>
+                <button id="loginButton" type="button" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
+                    <span id="loginText">Masuk</span>
+                    <span id="loginSpinner" class="spinner hidden ml-2"></span>
+                </button>
+            </form>
+            <p class="text-center text-sm text-slate-500 mt-8">
+                Belum punya akun? <a href="https://wa.me/6285966760134?text=Halo%2C%20saya%20tertarik%20dengan%20DekaBot%20tapi%20belum%20punya%20akun.%20Mohon%20bantuannya." target="_blank" rel="noopener noreferrer" class="font-semibold text-indigo-600 hover:underline">Hubungi Admin</a>
+            </p>
+        </div>
+    </div>
+    
+    <!-- Modal Pesan -->
+    <div id="messageBoxOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4 transition-opacity duration-300">
+        <div id="messageBox" class="w-full max-w-sm bg-white p-6 rounded-2xl shadow-xl transition-all duration-300 scale-95 opacity-0">
+            <div class="text-center">
+                <div id="messageIcon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4"></div>
+                <h3 class="text-lg font-medium leading-6 text-gray-900" id="messageTitle">Pemberitahuan</h3>
+                <div class="mt-2"><p class="text-sm text-gray-500" id="messageText"></p></div>
+            </div>
+            <div class="mt-5">
+                <button id="closeMessageBox" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BARU: Download App Modal -->
+    <div id="downloadModalOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden items-center justify-center p-4 transition-opacity duration-300">
+        <div id="downloadModalSection" class="relative bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-lg transition-all duration-300 scale-95 opacity-0">
+            <button id="closeDownloadModal" type="button" class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold text-slate-900">Download & Instal Aplikasi</h1>
+                <p class="text-slate-500 mt-2">Ikuti video tutorial di bawah ini untuk menginstal aplikasi.</p>
+            </div>
+            <div class="aspect-video w-full bg-black rounded-lg overflow-hidden shadow-lg mb-6">
+                 <iframe id="videoPlayer" class="w-full h-full" src="https://www.youtube.com/embed/-d4xdQ0Obog" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+            <a href="https://santridigital.net/app/aplikasi/dkbot.apk" download class="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-300 flex items-center justify-center">
+                <i class="fa-solid fa-download mr-2"></i>Download APK
+            </a>
+        </div>
+    </div>
+
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, Timestamp, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+        // Variabel global untuk instance Firebase
+        let app, auth, db;
+
+        // --- DOM ELEMENTS ---
+        const appView = document.getElementById('appView');
+        const contentCreatorSection = document.getElementById('contentCreatorSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        const loginModalOverlay = document.getElementById('loginModalOverlay');
+        const loginSection = document.getElementById('loginSection');
+        const closeLoginModal = document.getElementById('closeLoginModal');
+        
+        const loginEmailInput = document.getElementById('loginEmail');
+        const loginPasswordInput = document.getElementById('loginPassword');
+        const togglePassword = document.getElementById('togglePassword');
+        const loginButton = document.getElementById('loginButton');
+        const loginText = document.getElementById('loginText');
+        const loginSpinner = document.getElementById('loginSpinner');
+        
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        const dashboardEmail = document.getElementById('dashboardEmail');
+        const dashboardNamaInput = document.getElementById('dashboardNama');
+        const dashboardNoWaInput = document.getElementById('dashboardNoWa');
+        const dashboardPackageSelect = document.getElementById('dashboardPackage');
+        const dashboardMasaAktif = document.getElementById('dashboardMasaAktif');
+        const dashboardMasaBerakhir = document.getElementById('dashboardMasaBerakhir');
+        const editProfileButton = document.getElementById('editProfileButton');
+        const saveProfileButton = document.getElementById('saveProfileButton');
+        const logoutButton = document.getElementById('logoutButton');
+        const buatKontenButton = document.getElementById('buatKontenButton');
+
+        const messageBoxOverlay = document.getElementById('messageBoxOverlay');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const messageTitle = document.getElementById('messageTitle');
+        const messageIcon = document.getElementById('messageIcon');
+        const closeMessageBox = document.getElementById('closeMessageBox');
+
+        // BARU: Elemen Modal Download
+        const downloadAppButton = document.getElementById('downloadAppButton');
+        const downloadModalOverlay = document.getElementById('downloadModalOverlay');
+        const downloadModalSection = document.getElementById('downloadModalSection');
+        const closeDownloadModal = document.getElementById('closeDownloadModal');
+
+
+        // --- FUNCTIONS ---
+        async function createLoginSession(user) {
+            if (!user) return;
+            try {
+                await addDoc(collection(db, "sessions"), {
+                    userId: user.uid, email: user.email, loginAt: Timestamp.now(), device: navigator.userAgent
+                });
+            } catch (error) { console.error("Error creating login session:", error); }
+        }
+
+        function showLoginModal() {
+            loginModalOverlay.classList.remove('hidden');
+            loginModalOverlay.classList.add('flex');
+            setTimeout(() => {
+                loginModalOverlay.classList.add('opacity-100');
+                loginSection.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        }
+        function hideLoginModal() {
+            loginModalOverlay.classList.remove('opacity-100');
+            loginSection.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                loginModalOverlay.classList.add('hidden');
+                loginModalOverlay.classList.remove('flex');
+            }, 300);
+        }
+
+        function showMessageBox(message, type = 'info') {
+            let iconHtml = '', title = '';
+            switch (type) {
+                case 'success': iconHtml = '<i class="fa-solid fa-check text-2xl text-green-600"></i>'; title = 'Berhasil'; break;
+                case 'error': iconHtml = '<i class="fa-solid fa-xmark text-2xl text-red-600"></i>'; title = 'Gagal'; break;
+                default: iconHtml = '<i class="fa-solid fa-info text-2xl text-indigo-600"></i>'; title = 'Pemberitahuan';
+            }
+            messageIcon.innerHTML = iconHtml;
+            messageTitle.textContent = title;
+            messageText.innerHTML = message;
+            
+            messageBoxOverlay.classList.remove('hidden');
+            messageBoxOverlay.classList.add('flex');
+            setTimeout(() => {
+                messageBoxOverlay.classList.add('opacity-100');
+                messageBox.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        }
+        function hideMessageBox() {
+            messageBoxOverlay.classList.remove('opacity-100');
+            messageBox.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                messageBoxOverlay.classList.add('hidden');
+                messageBoxOverlay.classList.remove('flex');
+            }, 300);
+        }
+
+        // BARU: Fungsi untuk modal download
+        function showDownloadModal() {
+            downloadModalOverlay.classList.remove('hidden');
+            downloadModalOverlay.classList.add('flex');
+            setTimeout(() => {
+                downloadModalOverlay.classList.add('opacity-100');
+                downloadModalSection.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        }
+        function hideDownloadModal() {
+            downloadModalOverlay.classList.remove('opacity-100');
+            downloadModalSection.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                downloadModalOverlay.classList.add('hidden');
+                downloadModalOverlay.classList.remove('flex');
+            }, 300);
+        }
+        
+        togglePassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            const isPassword = loginPasswordInput.type === 'password';
+            loginPasswordInput.type = isPassword ? 'text' : 'password';
+            togglePassword.innerHTML = isPassword ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+        });
+
+        function setDashboardEditable(isEditable) {
+            const inputs = [dashboardNamaInput, dashboardNoWaInput];
+            if (isEditable) {
+                inputs.forEach(input => {
+                    input.disabled = false;
+                    input.classList.add('bg-slate-100', 'p-2', 'rounded-lg', 'focus:ring-2', 'focus:ring-indigo-500', 'ring-offset-2');
+                    input.classList.remove('bg-transparent', 'border-none', 'p-0');
+                });
+                editProfileButton.classList.add('hidden');
+                saveProfileButton.classList.remove('hidden');
+            } else {
+                inputs.forEach(input => {
+                    input.disabled = true;
+                    input.classList.remove('bg-slate-100', 'p-2', 'rounded-lg', 'focus:ring-2', 'focus:ring-indigo-500', 'ring-offset-2');
+                    input.classList.add('bg-transparent', 'border-none', 'p-0');
+                });
+                editProfileButton.classList.remove('hidden');
+                saveProfileButton.classList.add('hidden');
+            }
+        }
+
+        async function populateDashboard(user) {
+            try {
+                const userDocRef = doc(db, "users", user.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists()) {
+                    const userData = userDocSnap.data();
+                    welcomeMessage.textContent = `Selamat datang, ${userData.nama || user.email}!`;
+                    dashboardEmail.textContent = user.email;
+                    dashboardNamaInput.value = userData.nama || '';
+                    dashboardNoWaInput.value = userData.noWa || '';
+                    
+                    if (userData.langganan && userData.langganan.berakhir && userData.langganan.berakhir.toDate() > new Date()) {
+                        dashboardPackageSelect.value = userData.langganan.paket || '1bulan';
+                        const formatDate = (date) => date ? date.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A';
+                        dashboardMasaAktif.textContent = formatDate(userData.langganan.mulai);
+                        dashboardMasaBerakhir.textContent = formatDate(userData.langganan.berakhir);
+                        buatKontenButton.disabled = false;
+                        buatKontenButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        dashboardMasaAktif.textContent = 'Tidak Aktif';
+                        dashboardMasaBerakhir.textContent = 'Tidak Aktif';
+                        buatKontenButton.disabled = true;
+                        buatKontenButton.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
+                } else {
+                    showMessageBox("Data profil tidak ditemukan. Hubungi admin.", 'error');
+                }
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+                if (error.code === 'permission-denied') {
+                      showMessageBox('Langganan Anda telah berakhir atau Anda tidak memiliki izin.', 'error');
+                      handleLogout();
+                } else if (error.code === 'unavailable') {
+                    showMessageBox('Tidak dapat terhubung ke server. Periksa koneksi internet Anda. Aplikasi akan mencoba kembali secara otomatis.', 'error');
+                } else {
+                    showMessageBox(`Gagal memuat data profil: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        async function handleLogout() {
+            try { await signOut(auth); } 
+            catch (error) { showMessageBox(`Gagal keluar: ${error.message}`, 'error'); }
+        }
+
+        function showDashboard() {
+            appView.classList.remove('hidden');
+            contentCreatorSection.classList.add('hidden');
+            document.documentElement.classList.remove('iframe-body');
+            document.body.classList.remove('iframe-body');
+        }
+
+        async function showIframe() {
+            const iframe = document.getElementById('dekabotIframe');
+            
+            if (iframe && !iframe.src) {
+                try {
+                    const response = await fetch('get_iframe_url.php');
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    const data = await response.json();
+                    if (data.url) {
+                        iframe.src = data.url;
+                    } else {
+                         throw new Error('URL not found in response');
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch iframe URL:', error);
+                    showMessageBox('Gagal memuat konten. Silakan coba lagi.', 'error');
+                    return;
+                }
+            }
+            
+            appView.classList.add('hidden');
+            contentCreatorSection.classList.remove('hidden');
+            document.documentElement.classList.add('iframe-body');
+            document.body.classList.add('iframe-body');
+        }
+
+        async function initializeFirebase() {
+            try {
+                const response = await fetch('get_firebase_config.php');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch Firebase config');
+                }
+                const firebaseConfig = await response.json();
+                
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Setelah inisialisasi berhasil, jalankan skrip utama
+                runMainAppLogic(); 
+
+            } catch (error) {
+                console.error("Fatal Error: Could not initialize Firebase.", error);
+                document.body.innerHTML = `<div style="text-align: center; padding: 50px; font-family: sans-serif; color: #333;">
+                                                <h1 style="color: #dc2626;">Error Kritis</h1>
+                                                <p>Tidak dapat memuat konfigurasi aplikasi. Silakan hubungi dukungan teknis.</p>
+                                           </div>`;
+            }
+        }
+
+        function runMainAppLogic() {
+            try {
+                setPersistence(auth, browserLocalPersistence);
+            } catch (error) {
+                if (error.code == 'auth/unsupported-browser') {
+                    showMessageBox("Browser Anda tidak mendukung penyimpanan sesi login.", "info");
+                }
+            }
+            
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    hideLoginModal();
+                    await populateDashboard(user);
+                    showDashboard();
+                    setDashboardEditable(false);
+                } else {
+                    showDashboard();
+                    appView.classList.add('hidden');
+                    loginEmailInput.value = '';
+                    loginPasswordInput.value = '';
+                    showLoginModal();
+                }
+            });
+        }
+
+        // --- EVENT LISTENERS ---
+        closeLoginModal.addEventListener('click', hideLoginModal);
+        
+        loginButton.addEventListener('click', async () => {
+            const email = loginEmailInput.value.trim();
+            const password = loginPasswordInput.value;
+            if (!email || !password) { showMessageBox('Email dan password harus diisi.', 'error'); return; }
+            loginText.classList.add('hidden');
+            loginSpinner.classList.remove('hidden');
+            loginButton.disabled = true;
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                await createLoginSession(userCredential.user);
+            } catch (error) {
+                let msg = "Terjadi kesalahan saat login.";
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    msg = "Email atau password yang Anda masukkan salah.";
+                } else if (error.code === 'auth/invalid-email') { msg = "Format email tidak valid."; }
+                showMessageBox(msg, 'error');
+            } finally {
+                loginText.classList.remove('hidden');
+                loginSpinner.classList.add('hidden');
+                loginButton.disabled = false;
+            }
+        });
+        
+        buatKontenButton.addEventListener('click', () => {
+            if (buatKontenButton.disabled) {
+                const waLink = `https://wa.me/6285966760134?text=${encodeURIComponent('Halo, saya mau perpanjang langganan DekaBot.')}`;
+                showMessageBox(`Langganan Anda tidak aktif. Silakan hubungi admin.<br/><br/><a href="${waLink}" target="_blank" class="font-bold text-indigo-600 hover:underline">Hubungi Admin</a>`, 'error');
+            } else if (auth.currentUser) {
+                loadingOverlay.classList.remove('hidden');
+                loadingOverlay.classList.add('flex');
+                setTimeout(() => loadingOverlay.classList.add('opacity-100'), 10);
+                
+                setTimeout(async () => {
+                    await showIframe(); // Menggunakan fungsi async baru
+                    setTimeout(() => {
+                        loadingOverlay.classList.remove('opacity-100');
+                        setTimeout(() => {
+                            loadingOverlay.classList.add('hidden');
+                            loadingOverlay.classList.remove('flex');
+                        }, 300);
+                    }, 500);
+                }, 1500);
+            }
+        });
+
+        editProfileButton.addEventListener('click', () => {
+            setDashboardEditable(true);
+            showMessageBox('Anda sekarang dapat mengedit Nama dan No. WhatsApp.', 'info');
+        });
+
+        saveProfileButton.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) { showMessageBox("Sesi berakhir, silakan login kembali.", 'error'); return; }
+            saveProfileButton.disabled = true;
+            saveProfileButton.innerHTML = '<span class="spinner"></span><span class="ml-2">Menyimpan...</span>';
+            const updatedData = { nama: dashboardNamaInput.value.trim(), noWa: dashboardNoWaInput.value.trim() };
+            try {
+                await setDoc(doc(db, "users", user.uid), updatedData, { merge: true });
+                await populateDashboard(user);
+                showMessageBox('Profil berhasil diperbarui!', 'success');
+                setDashboardEditable(false);
+            } catch (error) {
+                showMessageBox(`Gagal menyimpan profil: ${error.message}`, 'error');
+            } finally {
+                saveProfileButton.disabled = false;
+                saveProfileButton.innerHTML = '<i class="fa-solid fa-save mr-2"></i>Simpan';
+            }
+        });
+        
+        logoutButton.addEventListener('click', handleLogout);
+        closeMessageBox.addEventListener('click', hideMessageBox);
+        messageBoxOverlay.addEventListener('click', (e) => {
+            if (e.target === messageBoxOverlay) hideMessageBox();
+        });
+
+        // BARU: Event Listener untuk modal download
+        downloadAppButton.addEventListener('click', showDownloadModal);
+        closeDownloadModal.addEventListener('click', hideDownloadModal);
+        downloadModalOverlay.addEventListener('click', (e) => {
+            if (e.target === downloadModalOverlay) hideDownloadModal();
+        });
+        
+        // Memulai aplikasi dengan mengambil konfigurasi terlebih dahulu
+        initializeFirebase();
+    </script>
+</body>
+</html>
