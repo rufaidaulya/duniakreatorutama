@@ -1,23 +1,16 @@
-<?php
-// Memuat file konfigurasi. Pastikan file config.php berada di direktori yang sama.
-require_once 'config.php';
-?>
 <!DOCTYPE html>
 <html lang="id" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DekaBot - Dashboard</title>
+    <title>DuniaKreator - Platfrorm AI Canggih Buat Otomisasi Konten Video Di Google Veo3</title>
     
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-    <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
@@ -27,619 +20,757 @@ require_once 'config.php';
             -moz-osx-font-smoothing: grayscale;
             background-color: #f8fafc; /* slate-50 */
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .gradient-bg {
+            background-color: #f3f4f6;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 0.2) 0px, transparent 50%),
+                radial-gradient(at 98% 1%, hsla(225, 39%, 30%, 0.2) 0px, transparent 50%);
         }
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* CSS Perbaikan untuk Iframe Responsif */
-        html.iframe-body, .iframe-body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Mencegah body utama scroll */
+        /* Animation Styles */
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+            will-change: opacity, transform;
         }
-        .iframe-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto; /* FIX: Memungkinkan scrolling vertikal di dalam container iframe */
-            -webkit-overflow-scrolling: touch; /* Scrolling yang lebih mulus di iOS */
+        .reveal-on-scroll.is-visible {
+            opacity: 1;
+            transform: translateY(0);
         }
-        .iframe-content {
-            flex-grow: 1;
-            border: none;
-            width: 100%;
-            height: 100%;
+        .video-thumbnail-card {
+            cursor: pointer;
         }
 
-        /* Modern Loader CSS */
-        .loader {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            position: relative;
-            animation: rotate 1s linear infinite
+        /* Pulse animation for CTA buttons */
+        @keyframes pulse-green {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
+          }
+          50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 10px rgba(22, 163, 74, 0);
+          }
         }
-        .loader::before , .loader::after {
-            content: "";
-            box-sizing: border-box;
-            position: absolute;
-            inset: 0px;
-            border-radius: 50%;
-            border: 5px solid #FFF;
-            animation: prixClipFix 2s linear infinite ;
-        }
-        .loader::after{
-            border-color: #4f46e5; /* indigo-600 */
-            animation: prixClipFix 2s linear infinite , rotate 0.5s linear infinite reverse;
-            inset: 6px;
-        }
-
-        @keyframes rotate {
-            0%   {transform: rotate(0deg)}
-            100%   {transform: rotate(360deg)}
-        }
-
-        @keyframes prixClipFix {
-            0%   {clip-path:polygon(50% 50%,0 0,0 0,0 0,0 0,0 0)}
-            25%  {clip-path:polygon(50% 50%,0 0,100% 0,100% 0,100% 0,100% 0)}
-            50%  {clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,100% 100%,100% 100%)}
-            75%  {clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 100%)}
-            100% {clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 0)}
+        .animate-pulse-green {
+            animation: pulse-green 2s infinite;
         }
     </style>
 </head>
 <body class="text-slate-800 leading-relaxed">
 
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center transition-opacity duration-300">
-        <div class="loader"></div>
-    </div>
+    <div id="landingPage">
+        <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-30 bg-white/95 backdrop-blur-lg">
+            <div class="px-4 pt-24 pb-8 space-y-6 flex flex-col items-center text-center w-full">
+                <a href="#unggulan" class="mobile-menu-link text-xl font-bold text-slate-700 hover:text-indigo-600">Keunggulan</a>
+                <a href="#harga" class="mobile-menu-link text-xl font-bold text-slate-700 hover:text-indigo-600">Harga</a>
+                <a href="#testimonials" class="mobile-menu-link text-xl font-bold text-slate-700 hover:text-indigo-600">Testimoni</a>
+                <hr class="w-24 border-t-2 border-slate-200 my-4" />
+                <a href="https://santridigital.net/app/duniakreator/landingpage/" class="mobile-menu-link bg-indigo-600 text-white font-semibold text-lg px-8 py-3 rounded-xl shadow-md hover:bg-indigo-700 w-64 text-center">
+                    Masuk
+                </a>
+                <a href="#harga" class="mobile-menu-link bg-green-600 text-white font-semibold text-lg px-8 py-3 rounded-xl shadow-md hover:bg-green-700 w-64 text-center">
+                    Daftar Sekarang
+                </a>
+            </div>
+        </div>
 
-    <!-- Main App View (Dashboard) -->
-    <div id="appView" class="hidden min-h-screen w-full bg-slate-100">
-        <!-- Dashboard Header -->
-        <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10">
+        <header id="header" class="fixed top-0 left-0 right-0 z-40 transition-all duration-300">
             <div class="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-20">
-                     <h2 id="welcomeMessage" class="text-xl font-bold text-slate-800">Selamat datang!</h2>
-                    <button id="logoutButton" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-all flex items-center justify-center text-sm">
-                        <i class="fa-solid fa-arrow-right-from-bracket mr-2"></i>Keluar
-                    </button>
+                    <a href="#" class="flex items-center space-x-2 flex-shrink-0">
+                        <img src="https://i.postimg.cc/7YhMT7Dc/duniakreator.png" alt="DekaBot Logo" class="h-8 w-auto" onerror="this.onerror=null;this.src='https://placehold.co/100x32/6366f1/white?text=DK';">
+                        <span class="font-bold text-xl text-slate-800">DuniaKreator</span>
+                    </a>
+                    
+                    <div class="hidden md:flex items-center space-x-4">
+                        <nav class="flex items-center space-x-8">
+                            <a href="#unggulan" class="font-medium text-slate-600 hover:text-indigo-600 transition-colors">Keunggulan</a>
+                            <a href="#harga" class="font-medium text-slate-600 hover:text-indigo-600 transition-colors">Harga</a>
+                            <a href="#testimonials" class="font-medium text-slate-600 hover:text-indigo-600 transition-colors">Testimoni</a>
+                        </nav>
+                         <div class="flex items-center space-x-2 sm:space-x-4">
+                            <a href="#harga" class="bg-green-600 text-white font-semibold px-4 sm:px-5 py-2.5 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300 animate-pulse-green text-sm sm:text-base">
+                                 Daftar Sekarang
+                            </a>
+                            <a href="https://santridigital.net/app/duniakreator/landingpage/" class="bg-indigo-600 text-white font-semibold px-4 sm:px-5 py-2.5 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 text-sm sm:text-base">
+                                 Masuk
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="md:hidden">
+                        <button id="mobile-menu-button" type="button" class="text-slate-700 hover:text-indigo-600 p-2 -mr-2 rounded-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500" aria-controls="mobile-menu" aria-expanded="false">
+                            <span class="sr-only">Buka menu utama</span>
+                            <i id="burger-icon" class="fa-solid fa-bars fa-xl transition-transform duration-300"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <!-- Dashboard Content -->
-        <main class="container mx-auto p-4 sm:p-6 lg:p-8">
-            <div class="w-full max-w-4xl mx-auto">
-                 <div id="dashboardSection" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full">
-                    <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-8 border-b border-slate-200 pb-6">
-                        <div>
-                            <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Dashboard Member</h1>
-                            <p id="dashboardEmail" class="text-slate-500 mt-1 text-sm"></p>
-                        </div>
-                        <div class="flex flex-col sm:flex-row sm:items-center gap-4 mt-4 sm:mt-0">
-                             <button id="buatKontenButton" type="button" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
-                                <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Buat Konten
-                            </button>
+        <main class="relative pt-20">
+            <div class="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80" aria-hidden="true">
+                <div class="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-[#808afc] to-[#4f46e5] opacity-30 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" style="clip-path: polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)"></div>
+            </div>
+            <section class="container mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32 text-center">
+                <h1 class="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-slate-900 tracking-tighter">
+                    Waktunya Khayalan <span class="text-indigo-600">Jadi Kenyataan.</span>
+                </h1>
+                <p class="mt-6 max-w-2xl mx-auto text-lg text-slate-600">
+                    Punya ide brilian di kepala tapi bingung cara visualinnya? Ngerasa mentok dan iri liat video orang lain seliweran di FYP? Tenang, sekarang giliranmu bersinar dengan naskah video AI profesional.
+                </p>
+                <div class="mt-10">
+                    <a href="https://santridigital.net/app/duniakreator/landingpage/" class="inline-block bg-indigo-600 text-white font-semibold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105">
+                        Mulai Berkarya Sekarang <i class="fa-solid fa-arrow-right ml-2"></i>
+                    </a>
+                </div>
+            </section>
+        </main>
+
+        <section id="unggulan" class="pb-20 bg-white">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16 reveal-on-scroll">
+                    <h2 class="text-3xl sm:text-4xl font-black tracking-tighter text-slate-900">Stop Stres Ngonten, DekaBot Punya Solusinya!</h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Merasa idemu lebih keren dari eksekusimu? Ini senjata rahasia yang bikin kontenmu setara ekspektasi.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="bg-slate-50 p-8 rounded-2xl border border-slate-200 reveal-on-scroll hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300">
+                        <div class="bg-indigo-100 text-indigo-500 w-16 h-16 rounded-2xl flex items-center justify-center mb-6"><i class="fa-solid fa-users-viewfinder text-3xl"></i></div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Karakter Selalu Sama</h3>
+                        <p class="text-slate-600"><strong class="text-slate-800">Problem:</strong> Bikin cerita bersambung, eh... pemerannya ganti-ganti tiap adegan. Penonton auto kabur, brand jadi ambyar. <br><strong class="text-green-600">Solusi:</strong> Ciptakan naskah untuk film pendek atau iklan dengan karakter AI yang konsisten. Cerita jadi kuat, branding makin mantap!</p>
+                    </div>
+                    <div class="bg-slate-50 p-8 rounded-2xl border border-slate-200 reveal-on-scroll hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300" style="transition-delay: 150ms;">
+                        <div class="bg-indigo-100 text-indigo-500 w-16 h-16 rounded-2xl flex items-center justify-center mb-6"><i class="fa-solid fa-box-open text-3xl"></i></div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Affiliate Tanpa Sample</h3>
+                        <p class="text-slate-600"><strong class="text-slate-800">Problem:</strong> Mau jadi affiliate sultan tapi modal buat beli sampel produk aja ngepas? Akhirnya cuma bisa nonton komisi orang lain. <br><strong class="text-green-600">Solusi:</strong> Gak perlu sampel! DekaBot bisa bikin naskah iklan produk apapun seolah-olah kamu punya studionya. Siap cuan!</p>
+                    </div>
+                     <div class="bg-slate-50 p-8 rounded-2xl border border-slate-200 reveal-on-scroll hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300" style="transition-delay: 300ms;">
+                        <div class="bg-indigo-100 text-indigo-500 w-16 h-16 rounded-2xl flex items-center justify-center mb-6"><i class="fa-solid fa-mobile-screen-button text-3xl"></i></div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Buat Konten Sat-Set Tanpa Ribet</h3>
+                        <p class="text-slate-600"><strong class="text-slate-800">Problem:</strong> Mikirin ide, nulis skrip, eh... pas mau eksekusi, trennya udah ganti. Kapan FYP-nya kalau begini terus? <br><strong class="text-green-600">Solusi:</strong> Ciptakan puluhan naskah video pendek sinematik dalam hitungan menit. Stok konten aman, siap FYP kapan aja!</p>
+                    </div>
+                    <div class="bg-indigo-600 text-white p-8 rounded-2xl shadow-lg reveal-on-scroll md:col-span-2 lg:col-span-3" style="transition-delay: 450ms;">
+                        <div class="flex flex-col md:flex-row items-center text-center md:text-left gap-8">
+                            <img src="https://i.postimg.cc/fyC3kG88/Photoroom-20250703-202213408.png" alt="Grup WhatsApp" class="w-32 h-32 flex-shrink-0">
+                            <div>
+                                <h3 class="text-xl font-bold text-white mb-2">Grup WA Sharing Eksklusif 🤝</h3>
+                                <p class="text-indigo-200"><strong class="text-white">Problem:</strong> Stuck? Butuh pencerahan tapi gak ada teman diskusi? Ngerasa berjuang sendirian di dunia kreator yang kejam ini? <br><strong class="text-green-300">Solusi:</strong> Kamu gak sendiri! Gabung di grup WA eksklusif, sharing bareng ratusan kreator lain, tanya jawab langsung, dan dapatkan inspirasi tanpa batas. Dijamin makin jago!</p>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
 
-                    <!-- Tombol Aksi Tambahan -->
-                    <div class="flex flex-col sm:flex-row gap-4 mb-8">
-                        <button id="downloadAppButton" type="button" class="w-full sm:w-auto flex-1 bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-300 flex items-center justify-center">
-                            <i class="fa-solid fa-download mr-2"></i>Download Aplikasi
-                        </button>
-                        <a href="https://chat.whatsapp.com/H4Gbd4MCnHlFq3IreWArK9?mode=ac_t" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto flex-1 bg-green-500 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all duration-300 flex items-center justify-center">
-                            <i class="fa-brands fa-whatsapp mr-2"></i>Join Grup WA
-                        </a>
+        <section id="hasil-karya" class="py-20 bg-white">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8 reveal-on-scroll">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl sm:text-4xl font-bold text-slate-900">🎬 Lihat Apa yang Dibuat Pakai Naskah DekaBot!</h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Dari cerita sinematik hingga iklan produk yang menjual. Ini bukan cuma janji, ini bukti nyata.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+                    <div class="video-thumbnail-card group" data-youtube-id="dP2rXizehdI">
+                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Cerita Sinematik Menyentuh</h3>
+                        <div class="relative rounded-xl overflow-hidden shadow-lg">
+                            <img src="https://img.youtube.com/vi/dP2rXizehdI/hqdefault.jpg" alt="Video Sinematik Menyentuh" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
+                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="video-thumbnail-card group" data-youtube-id="bjE0vGb9XLc">
+                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Iklan Produk Profesional</h3>
+                         <div class="relative rounded-xl overflow-hidden shadow-lg">
+                            <img src="https://img.youtube.com/vi/bjE0vGb9XLc/hqdefault.jpg" alt="Iklan Produk Profesional" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
+                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="video-thumbnail-card group" data-youtube-id="bG8eb33HGuU">
+                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Film Pendek Karakter</h3>
+                        <div class="relative rounded-xl overflow-hidden shadow-lg">
+                            <img src="https://img.youtube.com/vi/bG8eb33HGuU/hqdefault.jpg" alt="Film Pendek Karakter" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
+                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="video-thumbnail-card group" data-youtube-id="3IeybTGeUTw">
+                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Iklan Mode Berita</h3>
+                        <div class="relative rounded-xl overflow-hidden shadow-lg">
+                            <img src="https://img.youtube.com/vi/3IeybTGeUTw/hqdefault.jpg" alt="Iklan Mode Berita" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
+                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="video-thumbnail-card group" data-youtube-id="5_v5g4E2CaU">
+                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Konten Lucu Viral</h3>
+                         <div class="relative rounded-xl overflow-hidden shadow-lg">
+                            <img src="https://img.youtube.com/vi/5_v5g4E2CaU/hqdefault.jpg" alt="Konten Lucu Viral" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
+                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="video-thumbnail-card group" data-youtube-id="Z-aOKvJmmvY">
+                        <h3 class="mb-4 text-lg font-semibold text-slate-800 text-center">Lirik Lagu Profesional</h3>
+                        <div class="relative rounded-xl overflow-hidden shadow-lg">
+                            <img src="https://img.youtube.com/vi/Z-aOKvJmmvY/hqdefault.jpg" alt="Lirik Lagu Profesional" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300 group-hover:bg-black/20">
+                                <i class="fa-solid fa-play text-white text-5xl opacity-80 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-16 bg-white">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <a href="#harga" class="inline-block bg-green-600 text-white font-semibold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300 transform hover:scale-105 animate-pulse-green">
+                    👉 Amankan Harga Promo Sekarang!
+                </a>
+            </div>
+        </section>
+
+        <section id="workflow" class="py-20 bg-white">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16 reveal-on-scroll">
+                    <h2 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter">Gak Perlu Skill Dewa, <span class="text-indigo-600">Anak SD pun Bisa!</span></h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Lupakan pusing mikirin teknis. Kami sudah merancang DekaBot agar kamu bisa fokus 100% pada idemu. Cukup ikuti 4 langkah simpel ini:</p>
+                </div>
+                <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div class="bg-slate-50 rounded-2xl p-6 text-center reveal-on-scroll hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-indigo-200">
+                        <div class="flex items-center justify-center h-24 w-24 rounded-full bg-indigo-100 mx-auto mb-6 relative">
+                           <i class="fa-solid fa-rocket text-4xl text-indigo-600"></i>
+                           <span class="absolute -top-2 -right-2 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-4 border-white">1</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800">Buat Avatar/Produk</h3>
+                        <p class="mt-2 text-slate-500 text-sm">Ciptakan karakter atau deskripsikan produk utamamu.</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-2xl p-6 text-center reveal-on-scroll hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-indigo-200" style="transition-delay: 100ms;">
+                        <div class="flex items-center justify-center h-24 w-24 rounded-full bg-indigo-100 mx-auto mb-6 relative">
+                           <i class="fa-solid fa-pen-ruler text-4xl text-indigo-600"></i>
+                           <span class="absolute -top-2 -right-2 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-4 border-white">2</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800">DekaBot Racik Naskah</h3>
+                        <p class="mt-2 text-slate-500 text-sm">Biarkan AI meracik naskah sinematik yang terstruktur.</p>
+                    </div>
+                     <div class="bg-slate-50 rounded-2xl p-6 text-center reveal-on-scroll hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-indigo-200" style="transition-delay: 200ms;">
+                         <div class="flex items-center justify-center h-24 w-24 rounded-full bg-indigo-100 mx-auto mb-6 relative">
+                           <i class="fa-solid fa-copy text-4xl text-indigo-600"></i>
+                           <span class="absolute -top-2 -right-2 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-4 border-white">3</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800">Salin ke Veo3</h3>
+                        <p class="mt-2 text-slate-500 text-sm">Salin naskah yang sudah sempurna dengan satu klik.</p>
+                    </div>
+                     <div class="bg-slate-50 rounded-2xl p-6 text-center reveal-on-scroll hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-indigo-200" style="transition-delay: 300ms;">
+                         <div class="flex items-center justify-center h-24 w-24 rounded-full bg-indigo-100 mx-auto mb-6 relative">
+                           <i class="fa-solid fa-wand-magic-sparkles text-4xl text-indigo-600"></i>
+                           <span class="absolute -top-2 -right-2 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-4 border-white">4</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800">Edit & Posting</h3>
+                        <p class="mt-2 text-slate-500 text-sm">Sempurnakan videomu dan bagikan ke seluruh dunia.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="differentiator" class="py-20 bg-slate-50">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16 reveal-on-scroll">
+                    <h2 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter">Ini Bukan Pembuat Prompt Biasa, <span class="text-indigo-600">Ini Sutradara AI-mu!</span></h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-3xl mx-auto">Lupakan prompt satu baris yang hasilnya untung-untungan. DekaBot merancang cerita utuh, adegan per adegan, siap untuk mengubah khayalanmu jadi video nyata di Veo3.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                    <div class="bg-white p-8 rounded-2xl border-2 border-slate-200 reveal-on-scroll">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="bg-red-100 text-red-500 w-12 h-12 rounded-lg flex items-center justify-center text-2xl font-bold">❌</div>
+                            <h3 class="text-2xl font-bold text-slate-700">Prompt Biasa</h3>
+                        </div>
+                        <p class="text-slate-500 mb-4 italic">"Seekor kucing lucu main skateboard."</p>
+                        <div class="bg-slate-50 p-4 rounded-lg text-slate-600 text-sm space-y-3">
+                            <p><strong class="font-semibold text-red-500">Hasilnya?</strong> Mungkin bagus, mungkin aneh. Gak ada kontrol cerita.</p>
+                            <p><strong class="font-semibold text-red-500">Karakter?</strong> Bisa beda-beda tiap generate.</p>
+                            <p><strong class="font-semibold text-red-500">Sinematik?</strong> Tergantung keberuntungan.</p>
+                        </div>
+                    </div>
+                    <div class="bg-white border-2 border-indigo-500 p-8 rounded-2xl reveal-on-scroll shadow-2xl shadow-indigo-100" style="transition-delay: 200ms;">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="bg-green-100 text-green-600 w-12 h-12 rounded-lg flex items-center justify-center text-2xl font-bold">✅</div>
+                            <h3 class="text-2xl font-bold text-indigo-800">Naskah DekaBot</h3>
+                        </div>
+                        <div class="text-slate-700 mb-4 font-mono text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <strong>Adegan 1:</strong> [CLOSE UP] Seekor kucing oren bernama Oyen, memakai helm kecil, menatap skateboard dengan serius. 
+                            <br><strong>Adegan 2:</strong> [MEDIUM SHOT] Oyen mendorong skateboard dengan kaki belakangnya, meluncur pelan di trotoar... (dan seterusnya)
+                        </div>
+                        <div class="bg-indigo-50 p-4 rounded-lg text-slate-600 text-sm space-y-3">
+                            <p><strong class="font-semibold text-green-600">Hasilnya?</strong> Cerita yang terstruktur dan sinematik.</p>
+                            <p><strong class="font-semibold text-green-600">Karakter?</strong> Konsisten dari awal sampai akhir.</p>
+                            <p><strong class="font-semibold text-green-600">Sinematik?</strong> Dijamin! Lengkap dengan angle kamera.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="bonus" class="py-20 bg-white">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8 reveal-on-scroll">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl sm:text-4xl font-bold text-slate-900">🎁 Bukan Cuma Naskah, Amunisi Lainnya Lengkap!</h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-xl mx-auto">Kami kasih semua alat yang kamu butuhkan untuk jadi master konten.</p>
+                </div>
+                <div class="max-w-4xl mx-auto grid md:grid-cols-2 gap-x-10 gap-y-6">
+                    <div class="flex items-start space-x-4"><i class="fa-solid fa-brain text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">DekaAI Siap Bantu:</strong> Bingung cari ide atau referensi? Tanya aja DekaAI, asisten cerdas yang siap kasih inspirasi kapanpun kamu butuh.</p></div>
+                    <div class="flex items-start space-x-4"><i class="fa-solid fa-lightbulb text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Auto Prompt Video Konten:</strong> Mati gaya? Dapatkan ide & skrip konten otomatis.</p></div>
+                    <div class="flex items-start space-x-4"><i class="fa-solid fa-music text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Generator Lirik Lagu + Cover:</strong> Bikin lagu dan sampulnya sekalian.</p></div>
+                    <div class="flex items-start space-x-4"><i class="fa-solid fa-hashtag text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Generator Deskripsi & Hashtag:</strong> Biar postinganmu gampang viral.</p></div>
+                    <div class="flex items-start space-x-4"><i class="fa-solid fa-book-open text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Auto Novel & Jurnal Ilmiah:</strong> Buat penulis yang butuh inspirasi kilat.</p></div>
+                    <div class="flex items-start space-x-4"><i class="fa-solid fa-infinity text-xl text-indigo-500 mt-1"></i><p class="text-slate-700"><strong class="text-slate-800">Trik Unlimited Video di Veo3:</strong> Rahasia produksi video tak terbatas tanpa boncos.</p></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="target-audience" class="py-20 bg-slate-50">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16 reveal-on-scroll">
+                    <h2 class="text-3xl sm:text-4xl font-bold text-slate-900">💡 Cocok Banget Buat Kamu yang...</h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Siapapun kamu, DekaBot punya jawaban untuk setiap tantangan kreatif yang kamu hadapi.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden reveal-on-scroll hover:shadow-xl transition-all duration-300 border border-slate-200">
+                        <div class="p-6 bg-slate-50/50 flex items-center gap-4 border-b border-slate-200">
+                            <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-bullhorn text-2xl"></i></div>
+                            <h3 class="text-xl font-bold text-slate-800">Affiliate & Dropshipper</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div>
+                                <h4 class="font-semibold text-red-600 flex items-center gap-2"><i class="fa-solid fa-circle-xmark w-5 text-center"></i>Tantanganmu</h4>
+                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Mau review produk tapi gak ada sampelnya? Takut video promosimu gitu-gitu aja dan gak dilirik calon pembeli?</p>
+                            </div>
+                            <hr class="border-slate-100">
+                            <div>
+                                <h4 class="font-semibold text-green-600 flex items-center gap-2"><i class="fa-solid fa-circle-check w-5 text-center"></i>Solusi DekaBot</h4>
+                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">DekaBot bantu bikin naskah iklan profesional tanpa perlu pegang barangnya. Ceritakan keunggulan produk seolah kamu ahlinya, konversi dijamin naik!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden reveal-on-scroll hover:shadow-xl transition-all duration-300 border border-slate-200" style="transition-delay: 100ms;">
+                        <div class="p-6 bg-slate-50/50 flex items-center gap-4 border-b border-slate-200">
+                            <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-store text-2xl"></i></div>
+                            <h3 class="text-xl font-bold text-slate-800">Pemilik UMKM & Toko Online</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div>
+                                <h4 class="font-semibold text-red-600 flex items-center gap-2"><i class="fa-solid fa-circle-xmark w-5 text-center"></i>Tantanganmu</h4>
+                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Produk udah bagus, tapi bingung cara promosinya di medsos? Biaya hire videographer mahal, bikin sendiri hasilnya kurang maksimal.</p>
+                            </div>
+                            <hr class="border-slate-100">
+                            <div>
+                                <h4 class="font-semibold text-green-600 flex items-center gap-2"><i class="fa-solid fa-circle-check w-5 text-center"></i>Solusi DekaBot</h4>
+                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Buat puluhan naskah video promosi produkmu dengan mudah. Dari video unboxing sinematik sampai iklan pendek yang viral, semua bisa dibuat dalam hitungan menit.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden reveal-on-scroll hover:shadow-xl transition-all duration-300 border border-slate-200" style="transition-delay: 200ms;">
+                         <div class="p-6 bg-slate-50/50 flex items-center gap-4 border-b border-slate-200">
+                            <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-chalkboard-user text-2xl"></i></div>
+                            <h3 class="text-xl font-bold text-slate-800">Penyedia Jasa & Kursus</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div>
+                                <h4 class="font-semibold text-red-600 flex items-center gap-2"><i class="fa-solid fa-circle-xmark w-5 text-center"></i>Tantanganmu</h4>
+                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Susah menjelaskan manfaat jasamu lewat tulisan? Ingin membuat video edukasi atau profil yang menarik tapi terbatas ide dan waktu?</p>
+                            </div>
+                             <hr class="border-slate-100">
+                            <div>
+                                <h4 class="font-semibold text-green-600 flex items-center gap-2"><i class="fa-solid fa-circle-check w-5 text-center"></i>Solusi DekaBot</h4>
+                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Ubah penjelasan kompleks jadi cerita video yang mudah dipahami. Buat naskah video testimoni, profil, atau materi pembelajaran yang engaging dan profesional.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden reveal-on-scroll hover:shadow-xl transition-all duration-300 border border-slate-200" style="transition-delay: 300ms;">
+                        <div class="p-6 bg-slate-50/50 flex items-center gap-4 border-b border-slate-200">
+                            <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-clapperboard text-2xl"></i></div>
+                            <h3 class="text-xl font-bold text-slate-800">Kreator, Storyteller, Musisi</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                           <div>
+                                <h4 class="font-semibold text-red-600 flex items-center gap-2"><i class="fa-solid fa-circle-xmark w-5 text-center"></i>Tantanganmu</h4>
+                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">Writer's block melanda? Ide cerita numpuk di kepala tapi susah diwujudkan jadi naskah yang runut dan sinematik?</p>
+                            </div>
+                             <hr class="border-slate-100">
+                            <div>
+                                <h4 class="font-semibold text-green-600 flex items-center gap-2"><i class="fa-solid fa-circle-check w-5 text-center"></i>Solusi DekaBot</h4>
+                                <p class="text-slate-600 mt-1 pl-[28px] text-sm">DekaBot adalah partner brainstorming-mu. Kembangkan ide cerita jadi film pendek, video lirik, atau konten berseri dengan karakter yang konsisten dan alur yang memikat.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="harga" class="py-20 bg-slate-50">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-12 reveal-on-scroll">
+                    <h2 class="text-3xl sm:text-4xl font-black tracking-tighter text-slate-900">🔥 Jangan Sampai Kelewatan! Diskon Spesial Segera Berakhir</h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-xl mx-auto">Pilih paket yang paling pas buatmu sekarang juga. Lebih lama, lebih hemat!</p>
+                </div>
+                
+                <div class="max-w-md mx-auto bg-slate-800 text-white rounded-2xl p-6 mb-16 text-center shadow-lg reveal-on-scroll">
+                    <h4 class="text-lg font-semibold tracking-wider uppercase text-amber-300">Promo Berakhir Dalam</h4>
+                    <div id="countdown-timer" class="text-4xl sm:text-5xl font-mono font-bold mt-2 flex justify-center items-center space-x-4">
+                        <div><span id="hours">00</span><span class="block text-xs font-sans font-normal tracking-normal normal-case text-slate-400">Jam</span></div>
+                        <div class="text-4xl sm:text-5xl">:</div>
+                        <div><span id="minutes">00</span><span class="block text-xs font-sans font-normal tracking-normal normal-case text-slate-400">Menit</span></div>
+                        <div class="text-4xl sm:text-5xl">:</div>
+                        <div><span id="seconds">00</span><span class="block text-xs font-sans font-normal tracking-normal normal-case text-slate-400">Detik</span></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto items-end">
+                    <div class="relative bg-white border border-slate-200 rounded-2xl p-8 text-center flex flex-col h-full transform hover:-translate-y-2 transition-transform duration-300 reveal-on-scroll">
+                        <div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
+                            <span class="bg-slate-700 text-white text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full shadow-lg">Paket Standar</span>
+                        </div>
+                        <p class="pt-4 text-sm text-slate-500">Akses 3 Bulan</p>
+                        <span class="mt-2 bg-amber-200 text-amber-800 text-sm font-bold px-3 py-1 rounded-full self-center">HEMAT 50%</span>
+                        <p class="mt-4 text-4xl font-bold text-slate-900">Rp110.000</p>
+                        <del class="text-lg font-normal text-slate-400">Rp220.000</del>
+                        <ul class="mt-8 space-y-3 text-left text-slate-600 flex-grow">
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Semua Fitur Pro</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Grup WA Eksklusif</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Update Fitur Gratis</li>
+                        </ul>
+                        <a href="https://wa.me/6285966760134?text=Halo%2C%20saya%20tertarik%20dengan%20Paket%20Standar%20(3%20Bulan)%20seharga%20Rp110.000%20untuk%20DekaBot." target="_blank" rel="noopener noreferrer" class="mt-8 block w-full bg-slate-100 border border-slate-300 text-slate-700 font-semibold py-3 rounded-lg hover:bg-slate-200 transition-colors">Pilih Paket</a>
+                    </div>
+
+                    <div class="relative bg-indigo-50 border border-indigo-200 rounded-2xl p-8 text-center flex flex-col h-full transform hover:-translate-y-2 transition-transform duration-300 reveal-on-scroll" style="transition-delay: 150ms;">
+                        <div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
+                            <span class="bg-indigo-600 text-white text-sm font-bold uppercase tracking-wider px-5 py-2 rounded-full shadow-lg">Paling Laris</span>
+                        </div>
+                        <p class="pt-4 text-sm text-slate-500">Akses 6 Bulan</p>
+                        <span class="mt-2 bg-amber-200 text-amber-800 text-sm font-bold px-3 py-1 rounded-full self-center">HEMAT 57%</span>
+                        <p class="mt-4 text-4xl font-bold text-slate-900">Rp190.000</p>
+                        <del class="text-lg font-normal text-slate-400">Rp440.000</del>
+                         <ul class="mt-8 space-y-3 text-left text-slate-600 flex-grow">
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Semua Fitur Pro</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Grup WA Eksklusif</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-indigo-500 mr-3"></i>Update Fitur Gratis</li>
+                        </ul>
+                        <a href="https://wa.me/6285966760134?text=Halo%2C%20saya%20tertarik%20dengan%20Paket%20Paling%20Laris%20(6%20Bulan)%20seharga%20Rp190.000%20untuk%20DekaBot." target="_blank" rel="noopener noreferrer" class="mt-8 block w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-md">Pilih Paket</a>
                     </div>
                     
-                    <div class="grid md:grid-cols-2 gap-x-12 gap-y-8">
-                        <!-- Account Information -->
-                        <div class="space-y-6">
-                            <div class="flex justify-between items-center">
-                                <h3 class="text-xl font-semibold text-slate-800">Informasi Akun</h3>
-                                <div class="flex items-center">
-                                    <button id="editProfileButton" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm flex items-center"><i class="fa-solid fa-pen-to-square mr-2"></i>Edit</button>
-                                    <button id="saveProfileButton" class="bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg shadow-md hover:bg-indigo-700 text-sm hidden items-center justify-center"><i class="fa-solid fa-save mr-2"></i>Simpan</button>
-                                </div>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="text-sm font-medium text-slate-500">Nama</label>
-                                    <input type="text" id="dashboardNama" class="w-full text-lg font-semibold bg-transparent border-none p-0 focus:ring-0" disabled>
-                                </div>
-                                <hr class="border-slate-200">
-                                <div>
-                                    <label class="text-sm font-medium text-slate-500">No. WhatsApp</label>
-                                    <input type="text" id="dashboardNoWa" class="w-full text-lg font-semibold bg-transparent border-none p-0 focus:ring-0" disabled>
-                                </div>
+                    <div class="relative bg-gradient-to-br from-slate-900 to-indigo-700 text-white rounded-3xl p-8 text-center flex flex-col h-full shadow-2xl shadow-indigo-300 lg:scale-110 reveal-on-scroll" style="transition-delay: 300ms;">
+                        <div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
+                            <span class="bg-amber-400 text-slate-900 text-sm font-bold uppercase tracking-wider px-5 py-2 rounded-full shadow-lg">Paling Cuan</span>
+                        </div>
+                        <p class="pt-4 text-sm text-indigo-300">Akses 12 Bulan</p>
+                        <span class="mt-2 bg-white/20 text-white text-sm font-bold px-3 py-1 rounded-full self-center">HEMAT 60%</span>
+                        <p class="mt-4 text-5xl font-bold">Rp355.000</p>
+                        <del class="text-lg font-normal text-indigo-200">Rp880.000</del>
+                         <ul class="mt-8 space-y-3 text-left text-indigo-200 flex-grow">
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-amber-400 mr-3"></i>Semua Fitur Pro</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-amber-400 mr-3"></i>Grup WA Eksklusif</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check-circle text-amber-400 mr-3"></i>Update Fitur Gratis</li>
+                            <li class="flex items-center font-semibold"><i class="fa-solid fa-star text-amber-400 mr-3"></i>Prioritas Dukungan</li>
+                        </ul>
+                        <a href="https://wa.me/6285966760134?text=Halo%2C%20saya%20tertarik%20dengan%20Paket%20Paling%20Cuan%20(12%20Bulan)%20seharga%20Rp355.000%20untuk%20DekaBot." target="_blank" rel="noopener noreferrer" class="mt-8 block w-full bg-white text-indigo-700 font-bold py-4 rounded-lg hover:bg-indigo-100 transition-colors shadow-lg">Pilih Paket Terbaik</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="testimonials" class="py-20 bg-white">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16 reveal-on-scroll">
+                    <h2 class="text-3xl sm:text-4xl font-black tracking-tighter text-slate-900">💬 Kata Mereka yang Sudah Pakai DekaBot</h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-xl mx-auto">Bukan cuma kami yang bilang DekaBot keren. Lihat sendiri apa kata para member kami.</p>
+                </div>
+                <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="bg-slate-50 p-8 rounded-2xl shadow-lg border border-slate-100 flex flex-col h-full reveal-on-scroll transition-all duration-300 hover:shadow-xl hover:-translate-y-2">
+                        <div class="flex-grow">
+                            <div class="flex items-center mb-4 text-amber-400"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                            <p class="text-slate-600 italic">"Gila, ini game-changer banget! Dulu mikirin konsep iklan aja bisa berhari-hari. Sekarang, tinggal klik, naskah sinematik jadi. Omzet toko saya naik 30% bulan lalu!"</p>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-slate-200 flex items-center">
+                            <img class="h-12 w-12 rounded-full object-cover" src="https://i.pravatar.cc/150?img=1" alt="Budi Santoso">
+                            <div class="ml-4">
+                                <p class="font-semibold text-slate-800">Budi Santoso</p>
+                                <p class="text-sm text-slate-500">Pemilik UMKM Fashion</p>
                             </div>
                         </div>
-
-                        <!-- Subscription Information -->
-                        <div class="space-y-6">
-                            <h3 class="text-xl font-semibold text-slate-800">Informasi Langganan</h3>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="text-sm font-medium text-slate-500">Paket Langganan</label>
-                                    <select id="dashboardPackage" class="w-full text-lg font-semibold bg-transparent border-none p-0 focus:ring-0 appearance-none pointer-events-none" disabled>
-                                        <option value="1bulan">1 Bulan</option> <option value="3bulan">3 Bulan</option> <option value="6bulan">6 Bulan</option> <option value="12bulan">12 Bulan</option>
-                                    </select>
-                                </div>
-                                <hr class="border-slate-200">
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div><label class="text-sm font-medium text-slate-500">Mulai Aktif</label><p id="dashboardMasaAktif" class="font-semibold text-slate-800 text-lg"></p></div>
-                                    <div><label class="text-sm font-medium text-slate-500">Berakhir Pada</label><p id="dashboardMasaBerakhir" class="font-semibold text-slate-800 text-lg"></p></div>
-                                </div>
+                    </div>
+                    <div class="bg-slate-50 p-8 rounded-2xl shadow-lg border border-slate-100 flex flex-col h-full reveal-on-scroll transition-all duration-300 hover:shadow-xl hover:-translate-y-2" style="transition-delay: 150ms;">
+                        <div class="flex-grow">
+                            <div class="flex items-center mb-4 text-amber-400"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                            <p class="text-slate-600 italic">"Sebagai affiliate, DekaBot ini penyelamat. Gak perlu beli produknya buat bikin video review yang meyakinkan. Cukup pakai naskah dari sini, hasilnya pro banget. Komisi ngalir terus!"</p>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-slate-200 flex items-center">
+                            <img class="h-12 w-12 rounded-full object-cover" src="https://i.pravatar.cc/150?img=2" alt="Rina Wulandari">
+                            <div class="ml-4">
+                                <p class="font-semibold text-slate-800">Rina Wulandari</p>
+                                <p class="text-sm text-slate-500">Affiliate Marketer</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-8 rounded-2xl shadow-lg border border-slate-100 flex flex-col h-full reveal-on-scroll transition-all duration-300 hover:shadow-xl hover:-translate-y-2" style="transition-delay: 300ms;">
+                        <div class="flex-grow">
+                            <div class="flex items-center mb-4 text-amber-400"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i></div>
+                            <p class="text-slate-600 italic">"Buat konten YouTube short sekarang jadi cepet banget. Biasanya sehari cuma bisa bikin 1 video, sekarang bisa buat stok naskah buat seminggu dalam sejam. Kualitasnya juga konsisten!"</p>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-slate-200 flex items-center">
+                            <img class="h-12 w-12 rounded-full object-cover" src="https://i.pravatar.cc/150?img=3" alt="Agung Prasetyo">
+                            <div class="ml-4">
+                                <p class="font-semibold text-slate-800">Agung Prasetyo</p>
+                                <p class="text-sm text-slate-500">YouTuber</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
-
-    <!-- Content Creator Section (Iframe) -->
-    <div id="contentCreatorSection" class="hidden fixed inset-0 z-20">
-        <div class="iframe-container bg-gray-100">
-            <!-- URL Iframe akan dimuat oleh JavaScript -->
-            <iframe id="dekabotIframe" 
-                    class="iframe-content" 
-                    title="Sematkan DekaBot" 
-                    allowfullscreen 
-                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-pointer-lock allow-orientation-lock allow-presentation allow-top-navigation"
-                    allow="clipboard-write; clipboard-read">
-                Konten ini tidak dapat ditampilkan. Untuk pengalaman terbaik, silakan gunakan browser Google Chrome.
-            </iframe>
-        </div>
-    </div>
-
-    <!-- Login Modal -->
-    <div id="loginModalOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden items-center justify-center p-4 transition-opacity duration-300">
-        <div id="loginSection" class="relative bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-sm transition-all duration-300 scale-95 opacity-0">
-            <button id="closeLoginModal" type="button" class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
-            <div class="text-center mb-8">
-                <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Selamat Datang</h1>
-                <p class="text-slate-500 mt-2">Masuk untuk melanjutkan ke DekaBot</p>
+        </section>
+        
+        <section class="bg-slate-900">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-10 text-center text-white reveal-on-scroll">
+                <h2 class="text-3xl sm:text-4xl font-bold">Udah Siap Naik Kelas?</h2>
+                <p class="mt-8 max-w-xl mx-auto text-lg text-slate-300">💡 Jangan biarkan waktu & biaya jadi penghalang kreativitasmu. Dengan DekaBot, bikin naskah video profesional & cerita keren jadi semudah main game.</p>
+                <div class="mt-10">
+                    <a href="https://santridigital.net/app/duniakreator/landingpage/" class="inline-block bg-white text-slate-900 font-semibold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-all duration-300 transform hover:scale-105">
+                        🎯 Coba DekaBot Sekarang & Rasakan Sendiri Kemudahannya!
+                    </a>
+                    <p class="mt-4 text-sm text-slate-400">📍 www.duniakreator.com</p>
+                </div>
             </div>
-            <form class="space-y-5">
-                <div>
-                    <label for="loginEmail" class="text-sm font-medium text-slate-600">Email</label>
-                    <div class="relative mt-2">
-                        <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="email" id="loginEmail" placeholder="email@contoh.com" class="w-full pl-12 pr-4 py-3 bg-slate-100 border-2 border-transparent rounded-xl focus:outline-none focus:border-indigo-500 transition-all">
+        </section>
+
+
+        <footer class="bg-slate-900 text-slate-400">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12">
+                    
+                    <div class="md:col-span-5 lg:col-span-5 text-center md:text-left">
+                        <a href="#" class="flex items-center justify-center md:justify-start space-x-2 mb-4">
+                            <img src="https://i.postimg.cc/7YhMT7Dc/duniakreator.png" alt="DekaBot Logo" class="h-8 w-auto" onerror="this.onerror=null;this.src='https://placehold.co/100x32/6366f1/white?text=DK';">
+                            <span class="font-bold text-xl text-white">DuniaKreator</span>
+                        </a>
+                        <p class="text-sm max-w-xs mx-auto md:mx-0">
+                            Platform yang membantu para kreator, UMKM, dan affiliate untuk mengubah ide brilian menjadi naskah video sinematik yang siap viral.
+                        </p>
                     </div>
-                </div>
-                <div>
-                    <label for="loginPassword" class="text-sm font-medium text-slate-600">Password</label>
-                    <div class="relative mt-2">
-                        <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="password" id="loginPassword" placeholder="••••••••" class="w-full pl-12 pr-12 py-3 bg-slate-100 border-2 border-transparent rounded-xl focus:outline-none focus:border-indigo-500 transition-all">
-                        <button type="button" id="togglePassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500"><i class="fa-solid fa-eye"></i></button>
+
+                    <div class="hidden md:block md:col-span-1 lg:col-span-2"></div>
+
+                    <div class="md:col-span-3 lg:col-span-2 text-center md:text-left">
+                        <h3 class="text-lg font-semibold text-white mb-4">Akses Cepat</h3>
+                        <nav class="flex flex-col space-y-2">
+                            <a href="#unggulan" class="hover:text-white transition-colors">Keunggulan</a>
+                            <a href="#harga" class="hover:text-white transition-colors">Harga</a>
+                            <a href="#testimonials" class="hover:text-white transition-colors">Testimoni</a>
+                            <a href="#hasil-karya" class="hover:text-white transition-colors">Hasil Karya</a>
+                        </nav>
                     </div>
+                    
+                    <div class="md:col-span-3 lg:col-span-3 text-center md:text-left">
+                         <h3 class="text-lg font-semibold text-white mb-4">Ikuti Kami</h3>
+                         <div class="flex space-x-5 justify-center md:justify-start">
+                            <a href="https://www.instagram.com/duniakreator.official" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="text-slate-400 hover:text-white transition-colors"><i class="fa-brands fa-instagram fa-xl"></i></a>
+                            <a href="https://www.tiktok.com/@duniakreator.com" target="_blank" rel="noopener noreferrer" aria-label="TikTok" class="text-slate-400 hover:text-white transition-colors"><i class="fa-brands fa-tiktok fa-xl"></i></a>
+                            <a href="https://www.youtube.com/@duniakreator" target="_blank" rel="noopener noreferrer" aria-label="YouTube" class="text-slate-400 hover:text-white transition-colors"><i class="fa-brands fa-youtube fa-xl"></i></a>
+                         </div>
+                    </div>
+
                 </div>
-                <button id="loginButton" type="button" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
-                    <span id="loginText">Masuk</span>
-                    <span id="loginSpinner" class="spinner hidden ml-2"></span>
-                </button>
-            </form>
-            <p class="text-center text-sm text-slate-500 mt-8">
-                Belum punya akun? <a href="https://wa.me/6285966760134?text=Halo%2C%20saya%20tertarik%20dengan%20DekaBot%20tapi%20belum%20punya%20akun.%20Mohon%20bantuannya." target="_blank" rel="noopener noreferrer" class="font-semibold text-indigo-600 hover:underline">Hubungi Admin</a>
-            </p>
-        </div>
+                <div class="pt-8 border-t border-slate-700 text-center text-sm">
+                    <p>© 2024 Dunia Kreator. Hak Cipta Dilindungi.</p>
+                </div>
+            </div>
+        </footer>
     </div>
     
-    <!-- Modal Pesan -->
-    <div id="messageBoxOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4 transition-opacity duration-300">
-        <div id="messageBox" class="w-full max-w-sm bg-white p-6 rounded-2xl shadow-xl transition-all duration-300 scale-95 opacity-0">
-            <div class="text-center">
-                <div id="messageIcon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4"></div>
-                <h3 class="text-lg font-medium leading-6 text-gray-900" id="messageTitle">Pemberitahuan</h3>
-                <div class="mt-2"><p class="text-sm text-gray-500" id="messageText"></p></div>
-            </div>
-            <div class="mt-5">
-                <button id="closeMessageBox" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Tutup</button>
-            </div>
+    <div id="sticky-cta-footer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-xs sm:max-w-sm px-4 sm:px-0 md:hidden">
+        <a href="#harga" class="w-full flex items-center justify-center gap-2 bg-green-600 text-white font-semibold text-base px-5 py-3 rounded-full shadow-2xl shadow-green-500/30 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-300 transform hover:scale-105 animate-pulse-green">
+            <i class="fa-solid fa-rocket"></i>
+            <span>Daftar Sekarang</span>
+        </a>
+    </div>
+
+    <div id="videoModalOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4 transition-opacity duration-300">
+        <div id="videoModalContent" class="relative w-full max-w-4xl transition-all duration-300 scale-95 opacity-0">
+             <button id="closeVideoModal" type="button" class="absolute -top-2 -right-2 md:-top-4 md:-right-4 z-10 text-white bg-slate-800/70 hover:bg-slate-700 w-10 h-10 rounded-full text-2xl leading-none flex items-center justify-center">×</button>
+             <div class="aspect-video w-full bg-black rounded-lg overflow-hidden shadow-2xl">
+                 <iframe id="videoPlayer" class="w-full h-full" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+             </div>
         </div>
     </div>
 
-    <!-- BARU: Download App Modal -->
-    <div id="downloadModalOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden items-center justify-center p-4 transition-opacity duration-300">
-        <div id="downloadModalSection" class="relative bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-lg transition-all duration-300 scale-95 opacity-0">
-            <button id="closeDownloadModal" type="button" class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
-            <div class="text-center mb-6">
-                <h1 class="text-2xl font-bold text-slate-900">Download & Instal Aplikasi</h1>
-                <p class="text-slate-500 mt-2">Ikuti video tutorial di bawah ini untuk menginstal aplikasi.</p>
-            </div>
-            <div class="aspect-video w-full bg-black rounded-lg overflow-hidden shadow-lg mb-6">
-                 <iframe id="videoPlayer" class="w-full h-full" src="https://www.youtube.com/embed/-d4xdQ0Obog" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-            </div>
-            <a href="https://santridigital.net/app/aplikasi/dkbot.apk" download class="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-300 flex items-center justify-center">
-                <i class="fa-solid fa-download mr-2"></i>Download APK
-            </a>
-        </div>
-    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM ELEMENTS ---
+            const videoModalOverlay = document.getElementById('videoModalOverlay');
+            const videoModalContent = document.getElementById('videoModalContent');
+            const closeVideoModal = document.getElementById('closeVideoModal');
+            const videoPlayer = document.getElementById('videoPlayer');
+            const videoThumbnailCards = document.querySelectorAll('.video-thumbnail-card');
 
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const burgerIcon = document.getElementById('burger-icon');
+            const mobileMenuLinks = document.querySelectorAll('.mobile-menu-link');
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, Timestamp, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-
-        // Variabel global untuk instance Firebase
-        let app, auth, db;
-
-        // --- DOM ELEMENTS ---
-        const appView = document.getElementById('appView');
-        const contentCreatorSection = document.getElementById('contentCreatorSection');
-        const dashboardSection = document.getElementById('dashboardSection');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-
-        const loginModalOverlay = document.getElementById('loginModalOverlay');
-        const loginSection = document.getElementById('loginSection');
-        const closeLoginModal = document.getElementById('closeLoginModal');
-        
-        const loginEmailInput = document.getElementById('loginEmail');
-        const loginPasswordInput = document.getElementById('loginPassword');
-        const togglePassword = document.getElementById('togglePassword');
-        const loginButton = document.getElementById('loginButton');
-        const loginText = document.getElementById('loginText');
-        const loginSpinner = document.getElementById('loginSpinner');
-        
-        const welcomeMessage = document.getElementById('welcomeMessage');
-        const dashboardEmail = document.getElementById('dashboardEmail');
-        const dashboardNamaInput = document.getElementById('dashboardNama');
-        const dashboardNoWaInput = document.getElementById('dashboardNoWa');
-        const dashboardPackageSelect = document.getElementById('dashboardPackage');
-        const dashboardMasaAktif = document.getElementById('dashboardMasaAktif');
-        const dashboardMasaBerakhir = document.getElementById('dashboardMasaBerakhir');
-        const editProfileButton = document.getElementById('editProfileButton');
-        const saveProfileButton = document.getElementById('saveProfileButton');
-        const logoutButton = document.getElementById('logoutButton');
-        const buatKontenButton = document.getElementById('buatKontenButton');
-
-        const messageBoxOverlay = document.getElementById('messageBoxOverlay');
-        const messageBox = document.getElementById('messageBox');
-        const messageText = document.getElementById('messageText');
-        const messageTitle = document.getElementById('messageTitle');
-        const messageIcon = document.getElementById('messageIcon');
-        const closeMessageBox = document.getElementById('closeMessageBox');
-
-        // BARU: Elemen Modal Download
-        const downloadAppButton = document.getElementById('downloadAppButton');
-        const downloadModalOverlay = document.getElementById('downloadModalOverlay');
-        const downloadModalSection = document.getElementById('downloadModalSection');
-        const closeDownloadModal = document.getElementById('closeDownloadModal');
-
-
-        // --- FUNCTIONS ---
-        async function createLoginSession(user) {
-            if (!user) return;
-            try {
-                await addDoc(collection(db, "sessions"), {
-                    userId: user.uid, email: user.email, loginAt: Timestamp.now(), device: navigator.userAgent
-                });
-            } catch (error) { console.error("Error creating login session:", error); }
-        }
-
-        function showLoginModal() {
-            loginModalOverlay.classList.remove('hidden');
-            loginModalOverlay.classList.add('flex');
-            setTimeout(() => {
-                loginModalOverlay.classList.add('opacity-100');
-                loginSection.classList.remove('scale-95', 'opacity-0');
-            }, 10);
-        }
-        function hideLoginModal() {
-            loginModalOverlay.classList.remove('opacity-100');
-            loginSection.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                loginModalOverlay.classList.add('hidden');
-                loginModalOverlay.classList.remove('flex');
-            }, 300);
-        }
-
-        function showMessageBox(message, type = 'info') {
-            let iconHtml = '', title = '';
-            switch (type) {
-                case 'success': iconHtml = '<i class="fa-solid fa-check text-2xl text-green-600"></i>'; title = 'Berhasil'; break;
-                case 'error': iconHtml = '<i class="fa-solid fa-xmark text-2xl text-red-600"></i>'; title = 'Gagal'; break;
-                default: iconHtml = '<i class="fa-solid fa-info text-2xl text-indigo-600"></i>'; title = 'Pemberitahuan';
+            // --- FUNCTIONS ---
+            function showVideoModal(youtubeId) {
+                videoPlayer.src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`;
+                videoModalOverlay.classList.remove('hidden');
+                videoModalOverlay.classList.add('flex');
+                setTimeout(() => {
+                    videoModalOverlay.classList.add('opacity-100');
+                    videoModalContent.classList.remove('scale-95', 'opacity-0');
+                }, 10);
             }
-            messageIcon.innerHTML = iconHtml;
-            messageTitle.textContent = title;
-            messageText.innerHTML = message;
+
+            function hideVideoModal() {
+                videoModalOverlay.classList.remove('opacity-100');
+                videoModalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    videoModalOverlay.classList.add('hidden');
+                    videoModalOverlay.classList.remove('flex');
+                    videoPlayer.src = ''; // Stop video playback
+                }, 300);
+            }
+
+            function setupScrollAnimations() {
+                const revealElements = document.querySelectorAll('.reveal-on-scroll');
+                if (!revealElements.length) return;
+
+                const observer = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('is-visible');
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, {
+                    threshold: 0.1
+                });
+
+                revealElements.forEach(element => {
+                    observer.observe(element);
+                });
+            }
             
-            messageBoxOverlay.classList.remove('hidden');
-            messageBoxOverlay.classList.add('flex');
-            setTimeout(() => {
-                messageBoxOverlay.classList.add('opacity-100');
-                messageBox.classList.remove('scale-95', 'opacity-0');
-            }, 10);
-        }
-        function hideMessageBox() {
-            messageBoxOverlay.classList.remove('opacity-100');
-            messageBox.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                messageBoxOverlay.classList.add('hidden');
-                messageBoxOverlay.classList.remove('flex');
-            }, 300);
-        }
+            function setupCountdownTimer() {
+                const hoursEl = document.getElementById('hours');
+                const minutesEl = document.getElementById('minutes');
+                const secondsEl = document.getElementById('seconds');
+                const timerContainer = document.getElementById('countdown-timer');
 
-        // BARU: Fungsi untuk modal download
-        function showDownloadModal() {
-            downloadModalOverlay.classList.remove('hidden');
-            downloadModalOverlay.classList.add('flex');
-            setTimeout(() => {
-                downloadModalOverlay.classList.add('opacity-100');
-                downloadModalSection.classList.remove('scale-95', 'opacity-0');
-            }, 10);
-        }
-        function hideDownloadModal() {
-            downloadModalOverlay.classList.remove('opacity-100');
-            downloadModalSection.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                downloadModalOverlay.classList.add('hidden');
-                downloadModalOverlay.classList.remove('flex');
-            }, 300);
-        }
-        
-        togglePassword.addEventListener('click', (e) => {
-            e.preventDefault();
-            const isPassword = loginPasswordInput.type === 'password';
-            loginPasswordInput.type = isPassword ? 'text' : 'password';
-            togglePassword.innerHTML = isPassword ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
-        });
+                if (!hoursEl || !minutesEl || !secondsEl || !timerContainer) return;
 
-        function setDashboardEditable(isEditable) {
-            const inputs = [dashboardNamaInput, dashboardNoWaInput];
-            if (isEditable) {
-                inputs.forEach(input => {
-                    input.disabled = false;
-                    input.classList.add('bg-slate-100', 'p-2', 'rounded-lg', 'focus:ring-2', 'focus:ring-indigo-500', 'ring-offset-2');
-                    input.classList.remove('bg-transparent', 'border-none', 'p-0');
-                });
-                editProfileButton.classList.add('hidden');
-                saveProfileButton.classList.remove('hidden');
-            } else {
-                inputs.forEach(input => {
-                    input.disabled = true;
-                    input.classList.remove('bg-slate-100', 'p-2', 'rounded-lg', 'focus:ring-2', 'focus:ring-indigo-500', 'ring-offset-2');
-                    input.classList.add('bg-transparent', 'border-none', 'p-0');
-                });
-                editProfileButton.classList.remove('hidden');
-                saveProfileButton.classList.add('hidden');
-            }
-        }
+                let countdownInterval;
 
-        async function populateDashboard(user) {
-            try {
-                const userDocRef = doc(db, "users", user.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    welcomeMessage.textContent = `Selamat datang, ${userData.nama || user.email}!`;
-                    dashboardEmail.textContent = user.email;
-                    dashboardNamaInput.value = userData.nama || '';
-                    dashboardNoWaInput.value = userData.noWa || '';
-                    
-                    if (userData.langganan && userData.langganan.berakhir && userData.langganan.berakhir.toDate() > new Date()) {
-                        dashboardPackageSelect.value = userData.langganan.paket || '1bulan';
-                        const formatDate = (date) => date ? date.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A';
-                        dashboardMasaAktif.textContent = formatDate(userData.langganan.mulai);
-                        dashboardMasaBerakhir.textContent = formatDate(userData.langganan.berakhir);
-                        buatKontenButton.disabled = false;
-                        buatKontenButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        dashboardMasaAktif.textContent = 'Tidak Aktif';
-                        dashboardMasaBerakhir.textContent = 'Tidak Aktif';
-                        buatKontenButton.disabled = true;
-                        buatKontenButton.classList.add('opacity-50', 'cursor-not-allowed');
+                function startTimer() {
+                    let endTime = localStorage.getItem('countdownEndTime');
+
+                    if (!endTime || new Date().getTime() > parseInt(endTime)) {
+                        const randomHours = Math.floor(Math.random() * (14 - 7 + 1)) + 7; // 7 to 14 hours
+                        const randomMinutes = Math.floor(Math.random() * 59); // 0 to 59 minutes
+                        const duration = (randomHours * 60 * 60 * 1000) + (randomMinutes * 60 * 1000);
+                        endTime = new Date().getTime() + duration;
+                        localStorage.setItem('countdownEndTime', endTime);
                     }
-                } else {
-                    showMessageBox("Data profil tidak ditemukan. Hubungi admin.", 'error');
+
+                    countdownInterval = setInterval(() => {
+                        const now = new Date().getTime();
+                        const distance = parseInt(endTime) - now;
+
+                        if (distance < 0) {
+                            clearInterval(countdownInterval);
+                            timerContainer.innerHTML = '<span class="text-2xl font-bold">Promo Telah Berakhir!</span>';
+                            return;
+                        }
+
+                        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                        hoursEl.textContent = String(hours).padStart(2, '0');
+                        minutesEl.textContent = String(minutes).padStart(2, '0');
+                        secondsEl.textContent = String(seconds).padStart(2, '0');
+
+                    }, 1000);
                 }
-            } catch (error) {
-                console.error("Error fetching user data:", error);
-                if (error.code === 'permission-denied') {
-                      showMessageBox('Langganan Anda telah berakhir atau Anda tidak memiliki izin.', 'error');
-                      handleLogout();
-                } else if (error.code === 'unavailable') {
-                    showMessageBox('Tidak dapat terhubung ke server. Periksa koneksi internet Anda. Aplikasi akan mencoba kembali secara otomatis.', 'error');
-                } else {
-                    showMessageBox(`Gagal memuat data profil: ${error.message}`, 'error');
-                }
+
+                startTimer();
             }
-        }
-        
-        async function handleLogout() {
-            try { await signOut(auth); } 
-            catch (error) { showMessageBox(`Gagal keluar: ${error.message}`, 'error'); }
-        }
 
-        function showDashboard() {
-            appView.classList.remove('hidden');
-            contentCreatorSection.classList.add('hidden');
-            document.documentElement.classList.remove('iframe-body');
-            document.body.classList.remove('iframe-body');
-        }
-
-        async function showIframe() {
-            const iframe = document.getElementById('dekabotIframe');
-            
-            if (iframe && !iframe.src) {
-                try {
-                    const response = await fetch('get_iframe_url.php');
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    const data = await response.json();
-                    if (data.url) {
-                        iframe.src = data.url;
-                    } else {
-                         throw new Error('URL not found in response');
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch iframe URL:', error);
-                    showMessageBox('Gagal memuat konten. Silakan coba lagi.', 'error');
-                    return;
-                }
-            }
-            
-            appView.classList.add('hidden');
-            contentCreatorSection.classList.remove('hidden');
-            document.documentElement.classList.add('iframe-body');
-            document.body.classList.add('iframe-body');
-        }
-
-        async function initializeFirebase() {
-            try {
-                const response = await fetch('get_firebase_config.php');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch Firebase config');
-                }
-                const firebaseConfig = await response.json();
+            function toggleMobileMenu() {
+                if (!mobileMenuButton || !mobileMenu || !burgerIcon) return;
+                const isExpanded = mobileMenuButton.getAttribute('aria-expanded') === 'true';
+                mobileMenuButton.setAttribute('aria-expanded', !isExpanded);
+                mobileMenu.classList.toggle('hidden');
                 
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // Setelah inisialisasi berhasil, jalankan skrip utama
-                runMainAppLogic(); 
-
-            } catch (error) {
-                console.error("Fatal Error: Could not initialize Firebase.", error);
-                document.body.innerHTML = `<div style="text-align: center; padding: 50px; font-family: sans-serif; color: #333;">
-                                                <h1 style="color: #dc2626;">Error Kritis</h1>
-                                                <p>Tidak dapat memuat konfigurasi aplikasi. Silakan hubungi dukungan teknis.</p>
-                                           </div>`;
-            }
-        }
-
-        function runMainAppLogic() {
-            try {
-                setPersistence(auth, browserLocalPersistence);
-            } catch (error) {
-                if (error.code == 'auth/unsupported-browser') {
-                    showMessageBox("Browser Anda tidak mendukung penyimpanan sesi login.", "info");
+                // Prevent body scroll when menu is open
+                document.body.style.overflow = mobileMenu.classList.contains('hidden') ? '' : 'hidden';
+                
+                // Animate icon
+                burgerIcon.classList.toggle('rotate-90');
+                if (!isExpanded) {
+                    burgerIcon.classList.remove('fa-bars');
+                    burgerIcon.classList.add('fa-xmark');
+                } else {
+                    burgerIcon.classList.remove('fa-xmark');
+                    burgerIcon.classList.add('fa-bars');
                 }
             }
+
+            function setupMobileMenu() {
+                if (!mobileMenuButton || !mobileMenu || !burgerIcon) return;
+                
+                mobileMenuButton.addEventListener('click', toggleMobileMenu);
+
+                mobileMenuLinks.forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (!mobileMenu.classList.contains('hidden')) {
+                            toggleMobileMenu();
+                        }
+                    });
+                });
+            }
+
+            // --- EVENT LISTENERS ---
+            videoThumbnailCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const youtubeId = card.dataset.youtubeId;
+                    if (youtubeId) showVideoModal(youtubeId);
+                });
+            });
+
+            closeVideoModal.addEventListener('click', hideVideoModal);
+            videoModalOverlay.addEventListener('click', (e) => {
+                if (e.target === videoModalOverlay) hideVideoModal();
+            });
             
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    hideLoginModal();
-                    await populateDashboard(user);
-                    showDashboard();
-                    setDashboardEditable(false);
+            window.addEventListener('scroll', () => {
+                const header = document.getElementById('header');
+                if (window.scrollY > 20) {
+                    header.classList.add('bg-white/80', 'backdrop-blur-sm', 'shadow-sm');
                 } else {
-                    showDashboard();
-                    appView.classList.add('hidden');
-                    loginEmailInput.value = '';
-                    loginPasswordInput.value = '';
-                    showLoginModal();
+                    header.classList.remove('bg-white/80', 'backdrop-blur-sm', 'shadow-sm');
                 }
             });
-        }
 
-        // --- EVENT LISTENERS ---
-        closeLoginModal.addEventListener('click', hideLoginModal);
-        
-        loginButton.addEventListener('click', async () => {
-            const email = loginEmailInput.value.trim();
-            const password = loginPasswordInput.value;
-            if (!email || !password) { showMessageBox('Email dan password harus diisi.', 'error'); return; }
-            loginText.classList.add('hidden');
-            loginSpinner.classList.remove('hidden');
-            loginButton.disabled = true;
-            try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                await createLoginSession(userCredential.user);
-            } catch (error) {
-                let msg = "Terjadi kesalahan saat login.";
-                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                    msg = "Email atau password yang Anda masukkan salah.";
-                } else if (error.code === 'auth/invalid-email') { msg = "Format email tidak valid."; }
-                showMessageBox(msg, 'error');
-            } finally {
-                loginText.classList.remove('hidden');
-                loginSpinner.classList.add('hidden');
-                loginButton.disabled = false;
-            }
+            // --- INITIALIZE ---
+            setupMobileMenu();
+            setupScrollAnimations();
+            setupCountdownTimer();
         });
-        
-        buatKontenButton.addEventListener('click', () => {
-            if (buatKontenButton.disabled) {
-                const waLink = `https://wa.me/6285966760134?text=${encodeURIComponent('Halo, saya mau perpanjang langganan DekaBot.')}`;
-                showMessageBox(`Langganan Anda tidak aktif. Silakan hubungi admin.<br/><br/><a href="${waLink}" target="_blank" class="font-bold text-indigo-600 hover:underline">Hubungi Admin</a>`, 'error');
-            } else if (auth.currentUser) {
-                loadingOverlay.classList.remove('hidden');
-                loadingOverlay.classList.add('flex');
-                setTimeout(() => loadingOverlay.classList.add('opacity-100'), 10);
-                
-                setTimeout(async () => {
-                    await showIframe(); // Menggunakan fungsi async baru
-                    setTimeout(() => {
-                        loadingOverlay.classList.remove('opacity-100');
-                        setTimeout(() => {
-                            loadingOverlay.classList.add('hidden');
-                            loadingOverlay.classList.remove('flex');
-                        }, 300);
-                    }, 500);
-                }, 1500);
-            }
-        });
-
-        editProfileButton.addEventListener('click', () => {
-            setDashboardEditable(true);
-            showMessageBox('Anda sekarang dapat mengedit Nama dan No. WhatsApp.', 'info');
-        });
-
-        saveProfileButton.addEventListener('click', async () => {
-            const user = auth.currentUser;
-            if (!user) { showMessageBox("Sesi berakhir, silakan login kembali.", 'error'); return; }
-            saveProfileButton.disabled = true;
-            saveProfileButton.innerHTML = '<span class="spinner"></span><span class="ml-2">Menyimpan...</span>';
-            const updatedData = { nama: dashboardNamaInput.value.trim(), noWa: dashboardNoWaInput.value.trim() };
-            try {
-                await setDoc(doc(db, "users", user.uid), updatedData, { merge: true });
-                await populateDashboard(user);
-                showMessageBox('Profil berhasil diperbarui!', 'success');
-                setDashboardEditable(false);
-            } catch (error) {
-                showMessageBox(`Gagal menyimpan profil: ${error.message}`, 'error');
-            } finally {
-                saveProfileButton.disabled = false;
-                saveProfileButton.innerHTML = '<i class="fa-solid fa-save mr-2"></i>Simpan';
-            }
-        });
-        
-        logoutButton.addEventListener('click', handleLogout);
-        closeMessageBox.addEventListener('click', hideMessageBox);
-        messageBoxOverlay.addEventListener('click', (e) => {
-            if (e.target === messageBoxOverlay) hideMessageBox();
-        });
-
-        // BARU: Event Listener untuk modal download
-        downloadAppButton.addEventListener('click', showDownloadModal);
-        closeDownloadModal.addEventListener('click', hideDownloadModal);
-        downloadModalOverlay.addEventListener('click', (e) => {
-            if (e.target === downloadModalOverlay) hideDownloadModal();
-        });
-        
-        // Memulai aplikasi dengan mengambil konfigurasi terlebih dahulu
-        initializeFirebase();
     </script>
 </body>
 </html>
